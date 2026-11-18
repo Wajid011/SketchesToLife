@@ -1,193 +1,379 @@
-"""High-level generation orchestrator.
+"""High-level sketch-to-image generation orchestrator, style presets, and CLI.
 
-``generate.py`` is the bridge between the CLI / Gradio UI and the
-underlying pipeline classes. It:
-
-1. Loads and merges YAML config with any runtime overrides.
-2. Instantiates the correct preprocessor and pipeline.
-3. Iterates over sketch paths, skipping existing outputs (resumable).
-4. Saves the raw output, the conditioning map, and a side-by-side grid.
-
-This module is intentionally thin — all heavy logic lives in
-:mod:`sketch2image.pipelines` and :mod:`sketch2image.preprocessing`.
+Features:
+- Prompt Helper: Library of style presets combining subject, style, materials,
+  lighting, and camera terms, plus a robust default negative prompt.
+- Generation Runner: Executes the unified :class:`~sketch2image.pipelines.SketchToImageGenerator`.
+- JSON Sidecars: Every output image is paired with a comprehensive metadata JSON
+  file documenting all hyper-parameters, model IDs, seed, runtime, and VRAM peak.
+- Side-by-Side Visualisation: Generates comparison panels (Sketch | Condition | Output).
+- Resumable: Skips generation if image and metadata already exist.
+- CLI: ``python -m sketch2image.generate --sketch sketches/sketch_01.png --prompt "..."``
 """
 
 from __future__ import annotations
 
+import argparse
+import datetime
+import json
 import logging
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
-from sketch2image.preprocessing import SketchPreprocessor, load_sketch
+from sketch2image.pipelines import SketchToImageGenerator
+from sketch2image.preprocessing import prepare_condition
 from sketch2image.utils import load_config, resolve_output_dir, set_seed
 from sketch2image.visualize import save_side_by_side
 
 logger = logging.getLogger(__name__)
 
 
-def generate_single(
-    sketch_path: str | Path,
-    config: dict[str, Any],
-    output_dir: Path,
-    pipeline: Any,
-    preprocessor: SketchPreprocessor,
-) -> dict[str, Path]:
-    """Generate one image from one sketch.
+# ---------------------------------------------------------------------------
+# Style Presets Library
+# ---------------------------------------------------------------------------
+
+DEFAULT_NEGATIVE_PROMPT: str = (
+    "blurry, low quality, bad anatomy, worst quality, watermark, text, signature, "
+    "deformed, ugly, cropped, jpeg artifacts, lowres, distorted features, poorly drawn"
+)
+
+STYLE_PRESETS: dict[str, dict[str, str]] = {
+    "photorealistic": {
+        "suffix": ", 8k UHD, high resolution photograph, sharp focus, natural daylight, professional photography, realistic texture, 35mm lens, f/1.8",
+        "negative": ", cartoon, illustration, drawing, painting, 3d render, artificial",
+    },
+    "architectural_render": {
+        "suffix": ", modern architectural visualization, photorealistic architectural render, octane render, Unreal Engine 5, realistic materials, warm ambient evening lighting, ArchDaily award winner",
+        "negative": ", sketch, drawing, low resolution, miniature, deformed geometry",
+    },
+    "concept_art": {
+        "suffix": ", digital concept art, trending on ArtStation, dynamic cinematic lighting, intricate details, atmospheric perspective, highly detailed digital illustration",
+        "negative": ", photorealistic, photo, amateur, messy lines",
+    },
+    "product_studio": {
+        "suffix": ", clean commercial product studio photography, softbox studio lighting, soft neutral background, pristine reflections, 8k, sharp focus, commercial catalog shot",
+        "negative": ", outdoor, busy background, harsh shadows, noisy, dirty",
+    },
+    "watercolor": {
+        "suffix": ", expressive watercolor painting, delicate brushstrokes, rough paper grain texture, soft color bleed, translucent washes, handcrafted artistic masterpiece",
+        "negative": ", photograph, 3d render, sharp digital edges, plastic",
+    },
+    "cyberpunk": {
+        "suffix": ", cyberpunk aesthetic, vivid glowing neon lights, rainy wet asphalt reflections, moody volumetric haze, dark futuristic city atmosphere, high contrast, cinematic",
+        "negative": ", sunny, daytime, pastoral, rustic, monochrome",
+    },
+    "anime": {
+        "suffix": ", modern Japanese anime style illustration, Makoto Shinkai aesthetic, clean crisp lines, vibrant sky with volumetric clouds, beautiful anime visual, masterpiece",
+        "negative": ", photorealistic, 3d render, dark, gritty, Western comic",
+    },
+    "oil_painting": {
+        "suffix": ", classical oil painting on canvas, heavy impasto brushwork, rich textural depth, dramatic chiaroscuro lighting, Rembrandt palette, museum masterpiece",
+        "negative": ", digital art, smooth, plastic, photograph, vector",
+    },
+}
+
+
+def apply_style_preset(
+    prompt: str,
+    preset: str | None = None,
+    custom_negative: str = "",
+) -> tuple[str, str]:
+    """Combine a prompt with style preset terms and default negative prompts.
 
     Args:
-        sketch_path: Path to the input sketch file.
-        config: Merged experiment configuration.
-        output_dir: Directory in which to save outputs.
-        pipeline: Loaded pipeline instance (already called ``.load()``).
-        preprocessor: Instantiated :class:`~sketch2image.preprocessing.SketchPreprocessor`.
+        prompt: Base user prompt describing the subject.
+        preset: Name of style preset (e.g. 'photorealistic', 'cyberpunk').
+        custom_negative: Additional negative prompt terms.
 
     Returns:
-        Dict with keys ``generated``, ``conditioning_map``, ``side_by_side``
-        mapping to the saved file paths.
+        Tuple of (enhanced_prompt, full_negative_prompt).
+    """
+    styled_prompt = prompt.strip()
+    full_negative = DEFAULT_NEGATIVE_PROMPT
+
+    if preset and preset.lower() in STYLE_PRESETS:
+        info = STYLE_PRESETS[preset.lower()]
+        styled_prompt += info["suffix"]
+        full_negative += info["negative"]
+
+    if custom_negative:
+        full_negative = f"{full_negative}, {custom_negative.strip()}"
+
+    return styled_prompt, full_negative
+
+
+# ---------------------------------------------------------------------------
+# Generation Runner
+# ---------------------------------------------------------------------------
+
+
+def generate_for_sketch(
+    sketch_path: str | Path,
+    prompt: str,
+    generator: SketchToImageGenerator,
+    output_dir: str | Path,
+    preset: str | None = None,
+    negative_prompt: str = "",
+    condition_mode: str = "clean",
+    num_inference_steps: int = 30,
+    guidance_scale: float = 7.5,
+    controlnet_conditioning_scale: float = 1.0,
+    control_guidance_start: float = 0.0,
+    control_guidance_end: float = 1.0,
+    resolution: int | None = None,
+    seed: int = 42,
+    num_images_per_prompt: int = 1,
+    skip_existing: bool = True,
+) -> list[dict[str, Any]]:
+    """Execute sketch-to-image generation and save images, sidecars, and comparison grids.
+
+    Args:
+        sketch_path: Path to sketch image.
+        prompt: Base text prompt.
+        generator: Configured :class:`SketchToImageGenerator`.
+        output_dir: Directory where outputs are saved.
+        preset: Optional style preset name.
+        negative_prompt: Extra negative prompt.
+        condition_mode: Conditioning map extractor ('clean', 'canny', etc.).
+        num_inference_steps: Sampling steps.
+        guidance_scale: Classifier-free guidance scale.
+        controlnet_conditioning_scale: ControlNet strength.
+        control_guidance_start: Step fraction start.
+        control_guidance_end: Step fraction end.
+        resolution: Output size.
+        seed: RNG seed.
+        num_images_per_prompt: Number of images to generate.
+        skip_existing: If True, skip if outputs and JSON sidecar already exist.
+
+    Returns:
+        List of result dictionaries containing image paths and metadata.
     """
     sketch_path = Path(sketch_path)
+    if not sketch_path.exists():
+        raise FileNotFoundError(f"Sketch file not found: {sketch_path}")
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     stem = sketch_path.stem
-    seed = config.get("seed", 42)
-    scale = config.get("controlnet_conditioning_scale", 1.0)
+    styled_prompt, full_negative = apply_style_preset(prompt, preset=preset, custom_negative=negative_prompt)
 
-    # Build output file names that encode the key params for easy sorting
-    suffix = f"seed{seed}_scale{scale}"
-    out_generated = output_dir / f"{stem}_{suffix}_generated.png"
-    out_cond = output_dir / f"{stem}_{suffix}_cond_map.png"
-    out_grid = output_dir / f"{stem}_{suffix}_grid.png"
+    # File naming incorporating key experiment parameters
+    preset_tag = f"_{preset}" if preset else ""
+    base_name = f"{stem}{preset_tag}_{generator.backend}_seed{seed}"
 
-    # Resumability: skip if all outputs already exist
-    if out_generated.exists() and out_cond.exists() and out_grid.exists():
-        logger.info("All outputs exist for '%s'; skipping.", sketch_path.name)
-        return {
-            "generated": out_generated,
-            "conditioning_map": out_cond,
-            "side_by_side": out_grid,
-        }
+    # Check for existing results (resumable)
+    img_path = out_dir / f"{base_name}_0.png"
+    meta_path = out_dir / f"{base_name}_meta.json"
+    grid_path = out_dir / f"{base_name}_grid.png"
 
-    logger.info("Processing sketch: %s", sketch_path.name)
+    if skip_existing and img_path.exists() and meta_path.exists():
+        logger.info("Outputs already exist for '%s'; skipping.", base_name)
+        with meta_path.open("r", encoding="utf-8") as f:
+            cached_meta = json.load(f)
+        return [{"image_path": img_path, "metadata": cached_meta, "sidecar": meta_path}]
 
-    # 1. Load and preprocess the sketch
-    sketch = load_sketch(sketch_path, resolution=config.get("resolution", 512))
-    cond_map = preprocessor(sketch)
+    logger.info("Generating image for sketch '%s' with preset '%s'...", stem, preset or "none")
 
-    # 2. Set global seed for reproducibility
-    set_seed(seed)
+    # 1. Generate condition map for preview / side-by-side
+    target_res = resolution or (1024 if generator.backend == "sdxl_controlnet" else 512)
+    cond_map = prepare_condition(sketch_path, mode=condition_mode, resolution=target_res)
+    cond_file = out_dir / f"{base_name}_condition.png"
+    cond_map.save(cond_file)
 
-    # 3. Run inference
-    generated = pipeline.generate(
-        conditioning_map=cond_map,
-        prompt=config["prompt"],
-        negative_prompt=config.get("negative_prompt", ""),
+    # 2. Run generation
+    images, metadata = generator.generate(
+        sketch=sketch_path,
+        prompt=styled_prompt,
+        negative_prompt=full_negative,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        controlnet_conditioning_scale=controlnet_conditioning_scale,
+        control_guidance_start=control_guidance_start,
+        control_guidance_end=control_guidance_end,
+        resolution=target_res,
         seed=seed,
+        num_images_per_prompt=num_images_per_prompt,
+        condition_mode=condition_mode,
     )
 
-    # 4. Save outputs
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    if config.get("save_conditioning_map", True):
-        cond_map.save(out_cond)
-        logger.debug("Saved conditioning map: %s", out_cond)
-
-    generated.save(out_generated)
-    logger.info("Saved generated image: %s", out_generated)
-
-    if config.get("save_side_by_side", True):
-        save_side_by_side(sketch, cond_map, generated, out_grid)
-        logger.debug("Saved side-by-side grid: %s", out_grid)
-
-    return {
-        "generated": out_generated,
-        "conditioning_map": out_cond,
-        "side_by_side": out_grid,
-    }
-
-
-def run_generation(
-    config_path: str | Path,
-    overrides: dict[str, Any] | None = None,
-) -> list[dict[str, Path]]:
-    """Full generation run from a YAML config file.
-
-    Loads config, builds pipeline + preprocessor, iterates over all
-    ``sketch_paths`` in config, and returns a list of output path dicts.
-
-    Args:
-        config_path: Path to the YAML experiment config file.
-        overrides: Optional dict of config keys to override at runtime.
-
-    Returns:
-        List of dicts (one per sketch) with keys ``generated``,
-        ``conditioning_map``, ``side_by_side``.
-    """
-    # Import here so the module is importable without diffusers on CPU
-    from sketch2image.pipelines import build_pipeline
-
-    config = load_config(config_path, overrides=overrides)
-    output_dir = resolve_output_dir(config)
-
-    preprocessor = SketchPreprocessor(
-        preprocessor_type=config.get("preprocessor", "hed"),
-        resolution=config.get("preprocessor_resolution", 512),
-    )
-
-    pipeline = build_pipeline(config)
-    pipeline.load()
+    # Add extra experiment metadata
+    metadata.update({
+        "sketch_file": str(sketch_path.resolve()),
+        "raw_prompt": prompt,
+        "style_preset": preset,
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "generated_files": [],
+    })
 
     results = []
-    sketch_paths = config.get("sketch_paths", [])
-    logger.info("Running generation for %d sketch(es).", len(sketch_paths))
+    original_sketch = Image.open(sketch_path).convert("RGB")
 
-    for sketch_path in sketch_paths:
-        try:
-            result = generate_single(
-                sketch_path=sketch_path,
-                config=config,
-                output_dir=output_dir,
-                pipeline=pipeline,
-                preprocessor=preprocessor,
-            )
-            results.append(result)
-        except Exception:
-            logger.exception("Failed to process '%s'; continuing.", sketch_path)
+    for idx, img in enumerate(images):
+        single_img_file = out_dir / f"{base_name}_{idx}.png"
+        img.save(single_img_file)
+        metadata["generated_files"].append(str(single_img_file.name))
 
-    pipeline.unload()
-    logger.info("Generation complete. %d image(s) produced.", len(results))
+        # Save side-by-side comparison grid for first image
+        if idx == 0:
+            save_side_by_side(original_sketch, cond_map, img, grid_path)
+
+        results.append({
+            "image_path": single_img_file,
+            "metadata": metadata,
+            "sidecar": meta_path,
+            "grid_path": grid_path,
+        })
+
+    # Save JSON sidecar
+    with meta_path.open("w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)
+    logger.info("Saved metadata sidecar: %s", meta_path)
+
     return results
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point (wired in pyproject.toml as s2i-generate)
+# CLI Interface
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
-    """CLI entry point for the ``s2i-generate`` command."""
-    import click
-
-    @click.command()
-    @click.option("--config", "-c", required=True, help="Path to experiment YAML config.")
-    @click.option(
-        "--override",
-        "-o",
-        multiple=True,
-        help="key=value overrides, e.g. -o seed=123 -o guidance_scale=9",
+    """Command-line interface for sketch2image.generate."""
+    parser = argparse.ArgumentParser(
+        description="Generate realistic images from hand-drawn sketches using diffusion."
     )
-    def _cli(config: str, override: tuple[str, ...]) -> None:
-        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-        overrides = {}
-        for item in override:
-            k, _, v = item.partition("=")
-            # Attempt numeric coercion
-            try:
-                overrides[k.strip()] = int(v)
-            except ValueError:
-                try:
-                    overrides[k.strip()] = float(v)
-                except ValueError:
-                    overrides[k.strip()] = v
-        run_generation(config, overrides=overrides)
+    parser.add_argument(
+        "--sketch",
+        "-s",
+        required=True,
+        help="Path to input sketch (PNG/JPG) or directory of sketches.",
+    )
+    parser.add_argument(
+        "--prompt",
+        "-p",
+        required=True,
+        help="Description of the scene to generate.",
+    )
+    parser.add_argument(
+        "--preset",
+        choices=list(STYLE_PRESETS.keys()),
+        default=None,
+        help="Style preset (e.g. photorealistic, architectural_render, watercolor, cyberpunk).",
+    )
+    parser.add_argument(
+        "--config",
+        "-c",
+        default="configs/default.yaml",
+        help="Path to YAML configuration file.",
+    )
+    parser.add_argument(
+        "--backend",
+        "-b",
+        choices=["sd15_controlnet", "sdxl_controlnet", "t2i_adapter"],
+        default=None,
+        help="Override diffusion backend.",
+    )
+    parser.add_argument(
+        "--controlnet-type",
+        choices=["scribble", "lineart", "softedge"],
+        default=None,
+        help="ControlNet variant for SD 1.5.",
+    )
+    parser.add_argument(
+        "--condition-mode",
+        choices=["clean", "canny", "none", "hed", "lineart"],
+        default=None,
+        help="Sketch preprocessing condition extractor mode.",
+    )
+    parser.add_argument("--steps", type=int, default=None, help="Number of inference steps.")
+    parser.add_argument("--scale", type=float, default=None, help="ControlNet conditioning scale.")
+    parser.add_argument("--guidance", type=float, default=None, help="Classifier-free guidance scale.")
+    parser.add_argument("--seed", type=int, default=None, help="Reproducibility seed.")
+    parser.add_argument("--num-images", type=int, default=1, help="Number of images to generate.")
+    parser.add_argument("--out", "-o", default=None, help="Output directory.")
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Run mock generation on CPU (for local development/testing without GPU).",
+    )
+    args = parser.parse_args()
 
-    _cli()
+    # Load base config
+    cfg = load_config(args.config if Path(args.config).exists() else None)
+
+    backend = args.backend or cfg.get("backend", "sd15_controlnet")
+    cn_type = args.controlnet_type or cfg.get("controlnet_type", "scribble")
+    cond_mode = args.condition_mode or cfg.get("preprocessor", "clean")
+    steps = args.steps or cfg.get("num_inference_steps", 30)
+    scale = args.scale or cfg.get("controlnet_conditioning_scale", 1.0)
+    guidance = args.guidance or cfg.get("guidance_scale", 7.5)
+    seed = args.seed if args.seed is not None else cfg.get("seed", 42)
+    out_dir = Path(args.out) if args.out else resolve_output_dir(cfg)
+
+    # Initialize generator
+    generator = SketchToImageGenerator(
+        backend=backend,
+        controlnet_type=cn_type,
+        device=cfg.get("device", "cuda"),
+        dtype=cfg.get("dtype", "float16"),
+        model_ids=cfg.get("models"),
+        enable_attention_slicing=cfg.get("enable_attention_slicing", True),
+        enable_model_cpu_offload=cfg.get("enable_model_cpu_offload", False),
+        enable_vae_tiling=cfg.get("enable_vae_tiling", True),
+        scheduler_name=cfg.get("scheduler", "DPM++ 2M Karras"),
+        mock=args.mock,
+    )
+
+    sketch_target = Path(args.sketch)
+    if sketch_target.is_file():
+        sketch_files = [sketch_target]
+    elif sketch_target.is_dir():
+        sketch_files = sorted(
+            [p for p in sketch_target.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg")]
+        )
+    else:
+        print(f"Error: Sketch path '{sketch_target}' not found.")
+        return
+
+    print(f"\n========================================================")
+    print(f"  SketchesToLife — Generation")
+    print(f"========================================================")
+    print(f"  Backend:         {backend}")
+    print(f"  ControlNet:      {cn_type}")
+    print(f"  Condition Mode:  {cond_mode}")
+    print(f"  Preset:          {args.preset or 'None'}")
+    print(f"  Steps:           {steps}")
+    print(f"  Scale:           {scale}")
+    print(f"  Seed:            {seed}")
+    print(f"  Output Dir:      {out_dir}")
+    print(f"  Mock:            {args.mock}")
+    print(f"========================================================\n")
+
+    for sketch_file in sketch_files:
+        print(f"Processing '{sketch_file.name}'...")
+        results = generate_for_sketch(
+            sketch_path=sketch_file,
+            prompt=args.prompt,
+            generator=generator,
+            output_dir=out_dir,
+            preset=args.preset,
+            condition_mode=cond_mode,
+            num_inference_steps=steps,
+            guidance_scale=guidance,
+            controlnet_conditioning_scale=scale,
+            seed=seed,
+            num_images_per_prompt=args.num_images,
+        )
+        for res in results:
+            print(f"  ✓ Saved image:   {res['image_path']}")
+            print(f"  ✓ Saved sidecar: {res['sidecar']}")
+            if "grid_path" in res:
+                print(f"  ★ Saved grid:    {res['grid_path']}")
+        print()
+
+
+if __name__ == "__main__":
+    main()

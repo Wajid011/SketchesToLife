@@ -469,7 +469,11 @@ def prepare_condition(
             pil_input = Image.fromarray(image)
 
         pil_input = ImageOps.exif_transpose(pil_input).convert("RGB")
-        detector = _get_aux_detector(mode)
+        try:
+            detector = _get_aux_detector(mode)
+        except (ImportError, Exception) as exc:
+            logger.warning("Neural detector '%s' unavailable (%s); falling back to 'clean' mode.", mode, exc)
+            return prepare_condition(image, mode="clean", resolution=resolution, multiple=multiple, **kwargs)
 
         res_val = resolution if isinstance(resolution, int) else max(resolution)
         det_kwargs = {"detect_resolution": res_val, "image_resolution": res_val}
