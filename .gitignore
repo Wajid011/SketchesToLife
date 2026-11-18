@@ -1,0 +1,91 @@
+# =============================================================
+# .gitignore — SketchesToLife
+# =============================================================
+
+# ----- Generated outputs (stored on Drive, not in repo) ------
+outputs/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+
+# Allow curated/committed images explicitly (in results/ and sketches/)
+!results/**
+!sketches/**
+!assets/**
+!docs/**
+
+# ----- Model weights & HuggingFace cache --------------------
+*.bin
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.gguf
+.cache/
+huggingface/
+models/
+
+# ----- Python --------------------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.so
+*.whl
+
+# ----- Virtual environments / conda ----------------------
+venv/
+.venv/
+env/
+.env/
+envs/
+*.conda
+
+# ----- Environment / secrets ----------------------------
+.env
+*.env
+.env.*
+secrets.yaml
+
+# ----- Jupyter / notebooks ------------------------------
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# ----- Testing / coverage --------------------------------
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ----- Linting ------------------------------------------
+.ruff_cache/
+.mypy_cache/
+
+# ----- IDE -----------------------------------------------
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# ----- OS -----------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----- Logs & temp ---------------------------------------
+*.log
+*.tmp
+*.bak
+wandb/
+runs/

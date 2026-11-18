@@ -1,0 +1,119 @@
+# =============================================================
+# configs/default.yaml
+#
+# Master configuration for sketch-to-image experiments.
+# Every field documented. Override per-experiment by creating
+# a sibling YAML that sets only the keys you want to change.
+# The pipeline merges: default.yaml <- experiment.yaml.
+#
+# Output path: resolved from OUTPUT_DIR env var if set,
+# otherwise falls back to outputs/ relative to repo root.
+# =============================================================
+
+# ── Backend selection ──────────────────────────────────────
+# Options: sd15_controlnet | sdxl_controlnet | t2i_adapter
+backend: sd15_controlnet
+
+# ── Sketch input ──────────────────────────────────────────
+# Single path or list of paths (relative to repo root or absolute).
+# Supports glob patterns: sketches/*.png
+sketch_paths:
+  - sketches/sketch_01.png
+  - sketches/sketch_02.png
+  - sketches/sketch_03.png
+
+# ── Output ────────────────────────────────────────────────
+# Overridden by OUTPUT_DIR environment variable when set.
+output_dir: outputs/
+
+# ── Model IDs (Hugging Face) ──────────────────────────────
+models:
+  # SD 1.5 base
+  sd15_base: sd-legacy/stable-diffusion-v1-5
+
+  # ControlNet variants for SD 1.5
+  controlnet_scribble:  lllyasviel/control_v11p_sd15_scribble
+  controlnet_lineart:   lllyasviel/control_v11p_sd15_lineart
+  controlnet_softedge:  lllyasviel/control_v11p_sd15_softedge
+
+  # SDXL base
+  sdxl_base: stabilityai/stable-diffusion-xl-base-1.0
+
+  # ControlNet for SDXL
+  controlnet_sdxl_scribble: xinsir/controlnet-scribble-sdxl-1.0
+
+  # T2I-Adapter
+  t2i_adapter_sketch: TencentARC/t2iadapter_sketch_sd15v2
+
+# ── Active ControlNet type ────────────────────────────────
+# Which controlnet_* key above to use for the current run.
+# Options: scribble | lineart | softedge | sdxl_scribble
+controlnet_type: scribble
+
+# ── Preprocessor ──────────────────────────────────────────
+# Applied to the sketch before passing to ControlNet.
+# Options: hed | pidinet | lineart | lineart_coarse | none
+# "none" skips preprocessing (sketch used directly as conditioning map).
+preprocessor: hed
+
+# Preprocessor image resolution (before resizing to `resolution`)
+preprocessor_resolution: 512
+
+# ── Generation parameters ─────────────────────────────────
+prompt: "a beautiful realistic painting, detailed, high quality, 8k"
+negative_prompt: >-
+  blurry, low quality, bad anatomy, watermark, text, signature,
+  deformed, ugly, out of frame, cropped, worst quality, jpeg artifacts
+
+# Number of denoising steps (20–50 typical; higher = slower + sharper)
+num_inference_steps: 30
+
+# Classifier-free guidance scale (5–15; higher = prompt adherence)
+guidance_scale: 7.5
+
+# ── ControlNet conditioning ───────────────────────────────
+# How strongly the sketch conditions the generation.
+# 0.0 = ignore sketch entirely; 1.0 = strong structure; >1.2 = very rigid
+controlnet_conditioning_scale: 1.0
+
+# Step fraction at which ControlNet conditioning begins (0.0 = from start)
+control_guidance_start: 0.0
+
+# Step fraction at which ControlNet conditioning ends (1.0 = until end)
+control_guidance_end: 1.0
+
+# ── Image resolution ──────────────────────────────────────
+# Output image size. Must be divisible by 8.
+# SD 1.5 → 512 or 768; SDXL → 1024
+resolution: 512
+
+# ── Scheduler ─────────────────────────────────────────────
+# Controls the denoising schedule.
+# Options: DDIM | DPMSolverMultistep | UniPCMultistep | PNDM | Euler | EulerAncestral
+scheduler: DPMSolverMultistep
+
+# ── Reproducibility ───────────────────────────────────────
+seed: 42
+# Set to null to use a random seed each run.
+
+# ── Device / dtype ────────────────────────────────────────
+device: cuda          # cuda | cpu | mps
+dtype: float16        # float16 | float32 | bfloat16
+
+# Memory optimisations (applied automatically by pipeline)
+enable_attention_slicing: true
+enable_xformers: false          # set true if xformers is installed
+enable_model_cpu_offload: false # set true for SDXL on <16 GB VRAM
+
+# ── Multi-image experiment sweep ──────────────────────────
+# If set, the experiment runner will iterate over all combinations.
+sweep:
+  enabled: false
+  controlnet_conditioning_scale: [0.3, 0.6, 1.0, 1.3]
+  controlnet_type: [scribble, lineart, softedge]
+  seed: [42]
+
+# ── Logging ───────────────────────────────────────────────
+log_level: INFO   # DEBUG | INFO | WARNING | ERROR
+save_conditioning_map: true   # also save the preprocessor edge map
+save_side_by_side: true       # save sketch + output as combined image
