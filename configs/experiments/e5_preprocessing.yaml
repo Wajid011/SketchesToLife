@@ -1,0 +1,23 @@
+# Experiment E5: Preprocessing Conditioning Extractor Comparison
+id: E5
+title: Preprocessing Condition Map Comparison
+description: >
+  Examines how different conditioning representations (unprocessed raw sketch,
+  illumination-normalized clean sketch, Canny edge detector, and neural Lineart detector)
+  affect ControlNet's ability to lock onto the user's intent.
+
+fixed:
+  backend: sd15_controlnet
+  controlnet_type: scribble
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  controlnet_conditioning_scale: 1.0
+  seed: 42
+  resolution: 512
+  scheduler: "DPM++ 2M Karras"
+
+sweep:
+  type: scalar_sweep
+  parameter: condition_mode
+  values: ["none", "clean", "canny", "lineart"]
+  labels: ["Raw Input", "Cleaned Sketch", "Canny Edges", "Lineart Map"]

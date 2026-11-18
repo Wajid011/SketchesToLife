@@ -1,0 +1,22 @@
+# Experiment E8: Random Seed Stochasticity & Diversity
+id: E8
+title: Seed Variability & Stochastic Consistency
+description: >
+  Assesses how latent noise initialization (4 random seeds: 42, 123, 777, 999)
+  influences fine detail generation while preserving the global geometric boundary.
+
+fixed:
+  backend: sd15_controlnet
+  controlnet_type: scribble
+  condition_mode: clean
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  controlnet_conditioning_scale: 1.0
+  resolution: 512
+  scheduler: "DPM++ 2M Karras"
+
+sweep:
+  type: scalar_sweep
+  parameter: seed
+  values: [42, 123, 777, 999]
+  labels: ["Seed 42", "Seed 123", "Seed 777", "Seed 999"]

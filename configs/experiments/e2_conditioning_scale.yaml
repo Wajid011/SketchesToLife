@@ -1,0 +1,23 @@
+# Experiment E2: ControlNet Conditioning Scale Sweep
+id: E2
+title: Conditioning Scale Sensitivity
+description: >
+  Sweeps the ControlNet conditioning scale from 0.2 to 1.5. Evaluates the
+  fundamental trade-off between structural fidelity (rigid adherence to the sketch)
+  and creative generative freedom (hallucinating rich realistic details).
+
+fixed:
+  backend: sd15_controlnet
+  controlnet_type: scribble
+  condition_mode: clean
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  seed: 42
+  resolution: 512
+  scheduler: "DPM++ 2M Karras"
+
+sweep:
+  type: scalar_sweep
+  parameter: controlnet_conditioning_scale
+  values: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5]
+  labels: ["Scale 0.2", "Scale 0.4", "Scale 0.6", "Scale 0.8", "Scale 1.0 (Base)", "Scale 1.2", "Scale 1.5"]

@@ -1,0 +1,24 @@
+# Experiment E7: Denoising Steps & Schedulers
+id: E7
+title: Steps & Schedulers Trade-off
+description: >
+  Evaluates generation quality vs compute cost by evaluating step counts (20, 30, 50)
+  across 3 modern differential equation solvers (DPM++ 2M Karras, Euler a, and UniPC).
+
+fixed:
+  backend: sd15_controlnet
+  controlnet_type: scribble
+  condition_mode: clean
+  guidance_scale: 7.5
+  controlnet_conditioning_scale: 1.0
+  seed: 42
+  resolution: 512
+
+sweep:
+  type: 2d_grid
+  row_parameter: num_inference_steps
+  row_values: [20, 30, 50]
+  row_labels: ["20 Steps", "30 Steps", "50 Steps"]
+  col_parameter: scheduler
+  col_values: ["DPM++ 2M Karras", "Euler a", "UniPC"]
+  col_labels: ["DPM++ 2M", "Euler a", "UniPC"]

@@ -1,0 +1,23 @@
+# Experiment E3: Classifier-Free Guidance (CFG) Scale Sweep
+id: E3
+title: Classifier-Free Guidance (CFG) Scale Sweep
+description: >
+  Evaluates the influence of text prompt guidance strength (CFG scale from 3.0 to 13.0).
+  Lower guidance allows unconstrained diffusion; higher guidance forces strict prompt
+  matching at the risk of oversaturation and contrast artifacts.
+
+fixed:
+  backend: sd15_controlnet
+  controlnet_type: scribble
+  condition_mode: clean
+  num_inference_steps: 30
+  controlnet_conditioning_scale: 1.0
+  seed: 42
+  resolution: 512
+  scheduler: "DPM++ 2M Karras"
+
+sweep:
+  type: scalar_sweep
+  parameter: guidance_scale
+  values: [3.0, 5.0, 7.5, 10.0, 13.0]
+  labels: ["CFG 3.0", "CFG 5.0", "CFG 7.5 (Default)", "CFG 10.0", "CFG 13.0"]

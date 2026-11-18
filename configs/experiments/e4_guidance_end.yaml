@@ -1,0 +1,25 @@
+# Experiment E4: Control Guidance Release in Late Steps
+id: E4
+title: Control Guidance End Sweep (Releasing Structure)
+description: >
+  Varies control_guidance_end from 0.4 to 1.0. Allows ControlNet to guide early
+  coarse composition and then turn off, granting the UNet freedom in late denoising
+  steps to generate realistic fine micro-textures and shading.
+
+fixed:
+  backend: sd15_controlnet
+  controlnet_type: scribble
+  condition_mode: clean
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  controlnet_conditioning_scale: 1.0
+  control_guidance_start: 0.0
+  seed: 42
+  resolution: 512
+  scheduler: "DPM++ 2M Karras"
+
+sweep:
+  type: scalar_sweep
+  parameter: control_guidance_end
+  values: [0.4, 0.6, 0.8, 1.0]
+  labels: ["Release @ 40%", "Release @ 60%", "Release @ 80%", "Full (100%)"]

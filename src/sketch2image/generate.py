@@ -160,9 +160,21 @@ def generate_for_sketch(
     stem = sketch_path.stem
     styled_prompt, full_negative = apply_style_preset(prompt, preset=preset, custom_negative=negative_prompt)
 
-    # File naming incorporating key experiment parameters
+    # File naming incorporating all key experiment parameters
     preset_tag = f"_{preset}" if preset else ""
-    base_name = f"{stem}{preset_tag}_{generator.backend}_seed{seed}"
+    cn_tag = f"_{generator.controlnet_type}" if generator.controlnet_type else ""
+    cond_tag = f"_{condition_mode}" if condition_mode != "clean" else ""
+    scale_tag = f"_scale{controlnet_conditioning_scale}" if controlnet_conditioning_scale != 1.0 else ""
+    cfg_tag = f"_cfg{guidance_scale}" if guidance_scale != 7.5 else ""
+    end_tag = f"_end{control_guidance_end}" if control_guidance_end != 1.0 else ""
+    steps_tag = f"_steps{num_inference_steps}" if num_inference_steps != 30 else ""
+    sched_clean = generator.scheduler_name.replace(" ", "").replace("+", "p")
+    sched_tag = f"_{sched_clean}" if sched_clean not in ("DPMpp2MKarras", "DPMSolverMultistep") else ""
+
+    base_name = (
+        f"{stem}{preset_tag}_{generator.backend}{cn_tag}{cond_tag}"
+        f"{scale_tag}{cfg_tag}{end_tag}{steps_tag}{sched_tag}_seed{seed}"
+    )
 
     # Check for existing results (resumable)
     img_path = out_dir / f"{base_name}_0.png"

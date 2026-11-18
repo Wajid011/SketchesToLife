@@ -1,0 +1,40 @@
+# Experiment E1: Backend & ControlNet Architecture Comparison
+id: E1
+title: Backend / ControlNet Comparison
+description: >
+  Systematic comparison of Stable Diffusion 1.5 ControlNet variants (Scribble,
+  Lineart, SoftEdge), Stable Diffusion XL ControlNet Scribble (1024x1024),
+  and TencentARC T2I-Adapter Sketch on the exact same input sketch, prompt, and seed.
+
+fixed:
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  controlnet_conditioning_scale: 1.0
+  seed: 42
+  condition_mode: clean
+  scheduler: "DPM++ 2M Karras"
+
+sweep:
+  type: variant_list
+  parameter: backend_variant
+  variants:
+    - label: "SD 1.5 Scribble"
+      backend: sd15_controlnet
+      controlnet_type: scribble
+      resolution: 512
+    - label: "SD 1.5 Lineart"
+      backend: sd15_controlnet
+      controlnet_type: lineart
+      resolution: 512
+    - label: "SD 1.5 SoftEdge"
+      backend: sd15_controlnet
+      controlnet_type: softedge
+      resolution: 512
+    - label: "SDXL Scribble"
+      backend: sdxl_controlnet
+      controlnet_type: scribble
+      resolution: 1024
+    - label: "T2I-Adapter Sketch"
+      backend: t2i_adapter
+      controlnet_type: sketch
+      resolution: 512

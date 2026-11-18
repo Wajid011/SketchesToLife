@@ -1,0 +1,34 @@
+# Experiment E6: Style Preset & Artistic Domain Variation
+id: E6
+title: Style Preset & Artistic Variation
+description: >
+  Showcases creative versatility by applying 5 completely different aesthetic
+  and material domains (Photorealistic, Architectural Render, Concept Art,
+  Watercolor, Cyberpunk) to the exact same input sketch.
+
+fixed:
+  backend: sd15_controlnet
+  controlnet_type: scribble
+  condition_mode: clean
+  num_inference_steps: 30
+  guidance_scale: 7.5
+  controlnet_conditioning_scale: 1.0
+  seed: 42
+  resolution: 512
+  scheduler: "DPM++ 2M Karras"
+
+sweep:
+  type: scalar_sweep
+  parameter: preset
+  values:
+    - photorealistic
+    - architectural_render
+    - concept_art
+    - watercolor
+    - cyberpunk
+  labels:
+    - "Photorealistic"
+    - "Arch Render"
+    - "Concept Art"
+    - "Watercolor"
+    - "Cyberpunk"

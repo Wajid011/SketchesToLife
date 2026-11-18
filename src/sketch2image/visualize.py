@@ -1,17 +1,19 @@
-"""Visualisation utilities for sketch-to-image results.
+"""Publication-quality visualization utilities for sketch-to-image experiments.
 
-Creates side-by-side comparison grids and experiment summary figures
-suitable for the report and README.
-
-All functions accept PIL Images and write to disk via ``pathlib.Path``.
-No display side-effects — this module is Colab-safe.
+Features:
+- :func:`create_experiment_grid`: Generates publication-ready figures displaying the input
+  sketch on the far left, followed by generated variants across labelled parameter columns.
+- :func:`create_hero_figure`: Constructs a high-impact composite figure comparing each input sketch
+  with its best generated result for inclusion in the thesis/report and README.
+- :func:`save_side_by_side`: Creates 3-panel figures (Sketch | Condition | Output).
+- :func:`save_sweep_grid`: 2D multi-row parameter grid generator.
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,8 +21,240 @@ from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
+
 # ---------------------------------------------------------------------------
-# Core comparison grid
+# 1. Publication-Quality Experiment Grid (Sketch on Left + Parameter Columns)
+# ---------------------------------------------------------------------------
+
+
+def create_experiment_grid(
+    sketch: str | Path | Image.Image,
+    generated_images: Sequence[str | Path | Image.Image],
+    column_labels: Sequence[str],
+    output_path: str | Path,
+    title: str = "",
+    subtitle: str | None = None,
+    sketch_label: str = "Input Sketch",
+    dpi: int = 150,
+) -> Path:
+    """Create a publication-quality banner: [Input Sketch | Variant 1 | Variant 2 | ...].
+
+    Args:
+        sketch: Input sketch (image or path).
+        generated_images: Sequence of generated image variants.
+        column_labels: Label for each generated image column.
+        output_path: Destination path for saved PNG.
+        title: Main chart title.
+        subtitle: Optional subtitle describing parameters (e.g. Prompt, Seed, Backend).
+        sketch_label: Title displayed over the sketch panel.
+        dpi: Output resolution DPI (150 standard, 300 for print).
+
+    Returns:
+        Resolved absolute path to saved grid figure.
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load PIL images
+    def _to_pil(img_in: str | Path | Image.Image) -> Image.Image:
+        if isinstance(img_in, (str, Path)):
+            return Image.open(img_in).convert("RGB")
+        return img_in.convert("RGB")
+
+    pil_sketch = _to_pil(sketch)
+    pil_variants = [_to_pil(img) for img in generated_images]
+
+    n_cols = 1 + len(pil_variants)
+    fig_width = 3.6 * n_cols
+    fig_height = 4.4 if subtitle else 4.0
+
+    # Clean academic styling
+    fig, axes = plt.subplots(1, n_cols, figsize=(fig_width, fig_height), squeeze=False)
+    ax_row = axes[0]
+
+    # Panel 0: Input sketch with highlighted frame
+    ax_row[0].imshow(pil_sketch)
+    ax_row[0].set_title(sketch_label, fontsize=11, fontweight="bold", pad=8, color="#1a1a1a")
+    for spine in ax_row[0].spines.values():
+        spine.set_edgecolor("#4a90e2")
+        spine.set_linewidth(2.0)
+    ax_row[0].set_xticks([])
+    ax_row[0].set_yticks([])
+
+    # Panels 1..N: Generated variants
+    for idx, (img, label) in enumerate(zip(pil_variants, column_labels), start=1):
+        ax = ax_row[idx]
+        ax.imshow(img)
+        ax.set_title(label, fontsize=10, pad=8, color="#222222")
+        ax.axis("off")
+
+    # Titles and Subtitles
+    if title:
+        y_pos = 1.05 if subtitle else 1.02
+        fig.suptitle(title, fontsize=13, fontweight="bold", y=y_pos, color="#111111")
+    if subtitle:
+        fig.text(
+            0.5,
+            0.98,
+            subtitle,
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            style="italic",
+            color="#555555",
+            wrap=True,
+        )
+
+    fig.tight_layout(pad=0.6)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+    logger.info("Saved experiment grid: %s", output_path)
+    return output_path.resolve()
+
+
+# ---------------------------------------------------------------------------
+# 2. 2D Parameter Matrix Grid (Rows x Columns)
+# ---------------------------------------------------------------------------
+
+
+def create_2d_matrix_grid(
+    sketch: str | Path | Image.Image,
+    matrix_images: list[list[str | Path | Image.Image]],
+    row_labels: Sequence[str],
+    col_labels: Sequence[str],
+    output_path: str | Path,
+    title: str = "",
+    subtitle: str | None = None,
+    dpi: int = 150,
+) -> Path:
+    """Create a 2D parameter sweep matrix with row and column headers.
+
+    Layout:
+    [Sketch] [Col 1] [Col 2] ...
+    [Row 1]  Img(0,0) Img(0,1)
+    [Row 2]  Img(1,0) Img(1,1)
+
+    Args:
+        sketch: Input sketch.
+        matrix_images: 2D list of shape (num_rows, num_cols).
+        row_labels: Labels for each row.
+        col_labels: Labels for each column.
+        output_path: Destination path.
+        title: Figure title.
+        subtitle: Figure subtitle.
+        dpi: DPI.
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _to_pil(img_in: str | Path | Image.Image) -> Image.Image:
+        if isinstance(img_in, (str, Path)):
+            return Image.open(img_in).convert("RGB")
+        return img_in.convert("RGB")
+
+    pil_sketch = _to_pil(sketch)
+    n_rows = len(row_labels)
+    n_cols = len(col_labels)
+
+    fig_w = 3.2 * (n_cols + 1)
+    fig_h = 3.2 * n_rows + (0.8 if subtitle else 0.5)
+
+    fig, axes = plt.subplots(n_rows, n_cols + 1, figsize=(fig_w, fig_h), squeeze=False)
+
+    for r_idx in range(n_rows):
+        # Column 0: Original sketch
+        ax_sk = axes[r_idx, 0]
+        ax_sk.imshow(pil_sketch)
+        if r_idx == 0:
+            ax_sk.set_title("Input Sketch", fontsize=10, fontweight="bold", pad=6)
+        ax_sk.set_ylabel(row_labels[r_idx], fontsize=10, fontweight="bold", labelpad=8)
+        ax_sk.set_xticks([])
+        ax_sk.set_yticks([])
+
+        for c_idx in range(n_cols):
+            ax = axes[r_idx, c_idx + 1]
+            img = _to_pil(matrix_images[r_idx][c_idx])
+            ax.imshow(img)
+            if r_idx == 0:
+                ax.set_title(col_labels[c_idx], fontsize=10, pad=6)
+            ax.axis("off")
+
+    if title:
+        fig.suptitle(title, fontsize=13, fontweight="bold", y=1.02, color="#111111")
+    if subtitle:
+        fig.text(0.5, 0.98, subtitle, ha="center", fontsize=9, style="italic", color="#555555")
+
+    fig.tight_layout(pad=0.5)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+    logger.info("Saved 2D matrix grid: %s", output_path)
+    return output_path.resolve()
+
+
+# ---------------------------------------------------------------------------
+# 3. Hero Comparison Figure (Sketch -> Best Output Showcase)
+# ---------------------------------------------------------------------------
+
+
+def create_hero_figure(
+    sketch_output_pairs: Sequence[dict[str, Any]],
+    output_path: str | Path,
+    title: str = "Bringing Sketches to Life with Generative AI",
+    dpi: int = 150,
+) -> Path:
+    """Construct the main hero figure pairing each sketch with its premier output.
+
+    Args:
+        sketch_output_pairs: List of dicts, each containing:
+            - ``sketch``: path or PIL Image.
+            - ``output``: path or PIL Image.
+            - ``caption``: descriptive caption (subject, preset, backend).
+        output_path: Destination PNG file path.
+        title: Main banner title.
+        dpi: Output resolution.
+
+    Returns:
+        Resolved absolute path.
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    n_pairs = len(sketch_output_pairs)
+    fig, axes = plt.subplots(n_pairs, 2, figsize=(8, 3.8 * n_pairs), squeeze=False)
+
+    for i, pair in enumerate(sketch_output_pairs):
+        sk_img = pair["sketch"]
+        out_img = pair["output"]
+        caption = pair.get("caption", f"Sketch {i+1}")
+
+        if isinstance(sk_img, (str, Path)):
+            sk_img = Image.open(sk_img).convert("RGB")
+        if isinstance(out_img, (str, Path)):
+            out_img = Image.open(out_img).convert("RGB")
+
+        # Left: Sketch
+        axes[i, 0].imshow(sk_img)
+        axes[i, 0].set_title(f"Original Sketch #{i+1}", fontsize=11, fontweight="bold", pad=6)
+        axes[i, 0].axis("off")
+
+        # Right: Output
+        axes[i, 1].imshow(out_img)
+        axes[i, 1].set_title(f"Generated ({caption})", fontsize=11, fontweight="bold", pad=6)
+        axes[i, 1].axis("off")
+
+    fig.suptitle(title, fontsize=14, fontweight="bold", y=1.01, color="#111111")
+    fig.tight_layout(pad=0.8)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+    logger.info("Saved hero figure: %s", output_path)
+    return output_path.resolve()
+
+
+# ---------------------------------------------------------------------------
+# 4. Standard 3-Panel Side-by-Side
 # ---------------------------------------------------------------------------
 
 
@@ -32,19 +266,7 @@ def save_side_by_side(
     titles: Sequence[str] = ("Sketch", "Conditioning Map", "Generated"),
     dpi: int = 150,
 ) -> Path:
-    """Save a 3-panel figure: sketch | conditioning map | generated image.
-
-    Args:
-        sketch: Original hand-drawn sketch.
-        conditioning_map: Preprocessed edge/conditioning map.
-        generated: Output image from the diffusion pipeline.
-        output_path: Destination file path (PNG).
-        titles: Panel titles shown above each image.
-        dpi: Figure DPI (150 is a good balance for reports).
-
-    Returns:
-        Resolved absolute path to the saved figure.
-    """
+    """Save a 3-panel figure: sketch | conditioning map | generated image."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -62,122 +284,3 @@ def save_side_by_side(
 
     logger.debug("Saved side-by-side grid: %s", output_path)
     return output_path.resolve()
-
-
-# ---------------------------------------------------------------------------
-# Multi-result sweep grid
-# ---------------------------------------------------------------------------
-
-
-def save_sweep_grid(
-    sketch: Image.Image,
-    results: list[dict],
-    output_path: str | Path,
-    row_key: str = "controlnet_conditioning_scale",
-    col_key: str = "controlnet_type",
-    dpi: int = 120,
-) -> Path:
-    """Save a grid comparing generated images across a parameter sweep.
-
-    Each row corresponds to a unique value of ``row_key``;
-    each column to a unique value of ``col_key``.
-
-    Args:
-        sketch: The common input sketch image.
-        results: List of result dicts, each containing keys:
-            ``generated`` (PIL Image or Path), ``config`` (dict).
-        output_path: Destination file path (PNG).
-        row_key: Config key that varies across rows.
-        col_key: Config key that varies across columns.
-        dpi: Figure DPI.
-
-    Returns:
-        Resolved absolute path to the saved figure.
-    """
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Collect unique values (preserve insertion order via dict)
-    row_vals = list(dict.fromkeys(r["config"][row_key] for r in results))
-    col_vals = list(dict.fromkeys(r["config"][col_key] for r in results))
-    n_rows, n_cols = len(row_vals), len(col_vals)
-
-    fig, axes = plt.subplots(n_rows, n_cols + 1, figsize=(4 * (n_cols + 1), 4 * n_rows))
-    # Normalise to 2D array
-    if n_rows == 1:
-        axes = np.expand_dims(axes, 0)
-
-    for ri, row_val in enumerate(row_vals):
-        # First column: original sketch
-        axes[ri, 0].imshow(sketch)
-        axes[ri, 0].set_title("Sketch" if ri == 0 else "", fontsize=9)
-        axes[ri, 0].set_ylabel(f"{row_key}={row_val}", fontsize=8)
-        axes[ri, 0].axis("off")
-
-        for ci, col_val in enumerate(col_vals):
-            ax = axes[ri, ci + 1]
-            match = next(
-                (r for r in results if r["config"][row_key] == row_val and r["config"][col_key] == col_val),
-                None,
-            )
-            if match is not None:
-                img = match["generated"]
-                if isinstance(img, (str, Path)):
-                    img = Image.open(img)
-                ax.imshow(img)
-            else:
-                ax.text(0.5, 0.5, "N/A", ha="center", va="center", transform=ax.transAxes)
-                ax.set_facecolor("#f0f0f0")
-            if ri == 0:
-                ax.set_title(f"{col_key}={col_val}", fontsize=9)
-            ax.axis("off")
-
-    fig.suptitle(f"Sweep: {row_key} × {col_key}", fontsize=12, y=1.01)
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
-    plt.close(fig)
-
-    logger.info("Saved sweep grid: %s", output_path)
-    return output_path.resolve()
-
-
-# ---------------------------------------------------------------------------
-# Single annotated image
-# ---------------------------------------------------------------------------
-
-
-def annotate_image(
-    image: Image.Image,
-    text: str,
-    position: tuple[int, int] = (10, 10),
-    font_size: int = 16,
-    color: str = "white",
-    bg_color: str | None = "black",
-) -> Image.Image:
-    """Overlay a text annotation on a PIL image.
-
-    Args:
-        image: Base PIL image (modified in-place on a copy).
-        text: Text to overlay.
-        position: ``(x, y)`` pixel coordinates for the text.
-        font_size: Font size in pixels.
-        color: Text colour (CSS colour name or hex).
-        bg_color: Background fill colour behind text, or ``None`` for none.
-
-    Returns:
-        New PIL image with the annotation applied.
-    """
-    out = image.copy()
-    draw = ImageDraw.Draw(out)
-
-    try:
-        font = ImageFont.truetype("arial.ttf", font_size)
-    except OSError:
-        font = ImageFont.load_default()
-
-    if bg_color is not None:
-        bbox = draw.textbbox(position, text, font=font)
-        draw.rectangle(bbox, fill=bg_color)
-
-    draw.text(position, text, fill=color, font=font)
-    return out
