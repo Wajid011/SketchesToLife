@@ -63,6 +63,12 @@ ANALYZE_FLAGS=()
 if [[ $MOCK -eq 1 ]]; then
   MOCK_FLAG=(--mock)
   ANALYZE_FLAGS=(--edge-methods canny --no-clip)   # no model downloads on CPU
+elif ! "$PY" -c "import sys, torch; sys.exit(0 if torch.cuda.is_available() else 1)" 2>/dev/null; then
+  # Without CUDA the generator silently falls back to placeholder images; a real
+  # run would then overwrite results/ with fakes. Refuse before deleting anything.
+  echo "No CUDA GPU detected. Run this on a GPU (Colab/Kaggle), or use --mock" \
+       "for a CPU smoke test (writes to $OUT/results, never results/)." >&2
+  exit 3
 fi
 
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
