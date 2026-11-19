@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import importlib.util
+import inspect
 import json
 import logging
 import os
@@ -443,14 +444,53 @@ def _mode_badge() -> str:
     return f"🟢 **GPU:** {torch.cuda.get_device_name(0)}"
 
 
-def build_ui() -> gr.Blocks:
-    """Assemble the Blocks interface."""
-    theme = gr.themes.Soft(
+# ---------------------------------------------------------------------------
+# Gradio version compatibility (4.31 pinned locally/Colab; 6.x on Kaggle, Py 3.13)
+# ---------------------------------------------------------------------------
+
+# Gradio 6 moved `theme` and `css` from gr.Blocks() to launch().
+STYLE_IN_LAUNCH = {"theme", "css"} <= set(
+    inspect.signature(gr.Blocks.launch).parameters
+)
+
+
+def _theme() -> gr.themes.Base:
+    return gr.themes.Soft(
         primary_hue="blue",
         neutral_hue="slate",
         font=[gr.themes.GoogleFont("Inter"), "system-ui", "sans-serif"],
     )
-    with gr.Blocks(title="SketchesToLife", theme=theme, css=CSS) as demo:
+
+
+def _style_kwargs() -> dict[str, Any]:
+    """Theme + CSS, for whichever of gr.Blocks() / launch() accepts them."""
+    return {"theme": _theme(), "css": CSS}
+
+
+def _no_download_button() -> dict[str, Any]:
+    """Hide an image's download button (Gradio 4: flag; Gradio 6: `buttons` list)."""
+    params = inspect.signature(gr.Image.__init__).parameters
+    if "show_download_button" in params:
+        return {"show_download_button": False}
+    if "buttons" in params:
+        return {"buttons": ["fullscreen"]}
+    return {}
+
+
+def _sketchpad_label() -> str:
+    """Gradio 5+ starts the canvas with no tool selected, so say which one to pick.
+
+    (Its `placeholder` is not shown on a drawing-only canvas; the label always is.)
+    """
+    if int(gr.__version__.split(".")[0]) >= 5:
+        return "Draw: pick ✏️ Brush first"
+    return "Draw here"
+
+
+def build_ui() -> gr.Blocks:
+    """Assemble the Blocks interface."""
+    blocks_style = {} if STYLE_IN_LAUNCH else _style_kwargs()
+    with gr.Blocks(title="SketchesToLife", **blocks_style) as demo:
         gr.Markdown(
             "# ✏️ SketchesToLife\nTurn a hand-drawn sketch into an image while "
             "keeping its layout — Stable Diffusion + ControlNet.",
@@ -475,7 +515,7 @@ def build_ui() -> gr.Blocks:
                                 )
                             with gr.Tab("Draw", id="draw") as tab_draw:
                                 drawing = gr.Sketchpad(
-                                    label="Draw here",
+                                    label=_sketchpad_label(),
                                     type="pil",
                                     height=300,
                                     brush=gr.Brush(
@@ -490,7 +530,7 @@ def build_ui() -> gr.Blocks:
                             label="Control map — what the model sees",
                             interactive=False,
                             height=300,
-                            show_download_button=False,
+                            **_no_download_button(),
                         )
                         preview_note = gr.Markdown()
 
@@ -691,6 +731,7 @@ def main(argv: list[str] | None = None) -> None:
         server_port=args.port,
         share=args.share,
         allowed_paths=[str(APP_OUTPUT_DIR), str(SKETCH_DIR)],
+        **(_style_kwargs() if STYLE_IN_LAUNCH else {}),
     )
 
 
