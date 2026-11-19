@@ -53,6 +53,17 @@ DEFAULT_MODEL_IDS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 
+def _enable_vae_tiling(pipeline: Any) -> None:
+    """Decode the latent in tiles to save VRAM.
+
+    Called on the VAE itself: ``pipeline.enable_vae_tiling()`` was removed from
+    recent diffusers releases, while ``vae.enable_tiling()`` exists in all of them.
+    """
+    vae = getattr(pipeline, "vae", None)
+    if vae is not None and callable(getattr(vae, "enable_tiling", None)):
+        vae.enable_tiling()
+
+
 def configure_scheduler(pipeline: Any, scheduler_name: str) -> None:
     """Configure or replace the pipeline's noise scheduler.
 
@@ -222,8 +233,8 @@ class SketchToImageGenerator:
 
         if self.enable_attention_slicing:
             pipe.enable_attention_slicing()
-        if self.enable_vae_tiling and hasattr(pipe, "enable_vae_tiling"):
-            pipe.enable_vae_tiling()
+        if self.enable_vae_tiling:
+            _enable_vae_tiling(pipe)
 
         self._pipe = pipe
 
@@ -271,7 +282,7 @@ class SketchToImageGenerator:
         if self.enable_attention_slicing:
             pipe.enable_attention_slicing()
         if self.enable_vae_tiling:
-            pipe.enable_vae_tiling()
+            _enable_vae_tiling(pipe)
 
         self._pipe = pipe
 
