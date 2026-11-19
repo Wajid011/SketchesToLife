@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 SKETCH_PROMPTS: dict[str, str] = {
     "sketch_01": "cozy wooden cabin in the rocky mountains, warm glowing windows, pine forest",
     "sketch_02": "futuristic sleek electric sports car, reflections on glossy metallic red paint",
-    "sketch_03": "cute distinguished gentleman cat wearing retro glasses and bowtie",
+    "sketch_03": "cute distinguished gentleman cat",
 }
 
 
