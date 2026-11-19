@@ -88,7 +88,7 @@ SketchesToLife/
 **pip** (GPU machine / Colab):
 
 ```bash
-git clone https://github.com/<your-username>/SketchesToLife.git && cd SketchesToLife
+git clone https://github.com/Wajid011/SketchesToLife.git && cd SketchesToLife
 # Colab/Kaggle: skip this line, PyTorch is preinstalled. Elsewhere, install a CUDA build
 # of PyTorch >= 2.2 matching your Python (2.1.x has no Python 3.12 wheels), e.g.:
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
