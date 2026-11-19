@@ -83,7 +83,10 @@ EXAMPLES = [
     ),
     (
         "sketch_02",
-        "futuristic sleek electric sports car, reflections on glossy metallic red paint",
+        (
+            "cute vintage compact car seen from the front, round headlights, "
+            "chrome grille, glossy mint green paint, parked on a quiet country road"
+        ),
         "concept_art",
     ),
     (

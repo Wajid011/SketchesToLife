@@ -370,7 +370,7 @@ Upstream reference code: [ControlNet v1.1](https://github.com/lllyasviel/Control
 [CompVis/latent-diffusion](https://github.com/CompVis/latent-diffusion).
 
 **Sketches.** `sketches/` holds the three input images used in every experiment
-(`sketch_01`: kitten, `sketch_02`: sports car, `sketch_03`: log cabin).
+(`sketch_01`: kitten, `sketch_02`: vintage car, `sketch_03`: log cabin).
 
 **License.** Code: MIT (see [LICENSE](LICENSE)). Generated images are subject to the
 licenses of the models above (OpenRAIL family: use-based restrictions apply).

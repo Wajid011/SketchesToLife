@@ -52,7 +52,10 @@ logger = logging.getLogger(__name__)
 # Standard academic prompts tailored to each sample sketch
 SKETCH_PROMPTS: dict[str, str] = {
     "sketch_01": "fluffy tabby kitten sitting, big curious eyes, soft fur",
-    "sketch_02": "futuristic sleek electric sports car, reflections on glossy metallic red paint",
+    "sketch_02": (
+        "cute vintage compact car seen from the front, round headlights, "
+        "chrome grille, glossy mint green paint, parked on a quiet country road"
+    ),
     "sketch_03": "rustic log cabin with a metal roof and chimney, bushes, quiet countryside",
 }
 
@@ -245,7 +248,7 @@ HERO_CONFIGS = [
     },
     {
         "stem": "sketch_02",
-        "caption": "Sports Car — Concept Art SD1.5",
+        "caption": "Vintage Car — Concept Art SD1.5",
         "preset": "concept_art",
     },
     {
