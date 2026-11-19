@@ -161,7 +161,9 @@ class ModelManager:
                 self._gen = SketchToImageGenerator(
                     backend=backend,
                     controlnet_type=cn_type,
-                    enable_model_cpu_offload=backend == "sdxl_controlnet",
+                    # SDXL's loader always CPU-offloads by itself. Leaving this flag
+                    # off keeps the noise generator on the GPU, exactly as in the
+                    # CLI and experiments, so a seed gives the same image everywhere.
                     mock=self.force_mock,
                 )
                 self._gen.load()

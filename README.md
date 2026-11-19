@@ -326,9 +326,10 @@ from the manifest.
 
 **Determinism caveats:** bit-identical images are expected only on the *same GPU model
 with the same torch/CUDA/diffusers versions*. Other GPUs or versions change fp16 kernels,
-giving visually near-identical but not bit-identical results. SDXL (CPU-offloaded) draws
-its noise on the CPU, SD 1.5 on the GPU, so one seed means different noise across
-backends. Runtime and VRAM always vary.
+giving visually near-identical but not bit-identical results. The app, CLI and experiments
+all draw the starting noise on the GPU, so the same settings and seed give the same image
+in each. SDXL's latent is 128×128 versus SD 1.5's 64×64, so a seed is not comparable
+across those backends. Runtime and VRAM always vary.
 
 ## References & credits
 
