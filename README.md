@@ -3,7 +3,7 @@
 **Turn a rough sketch into a finished image that keeps your layout: Stable Diffusion
 guided by ControlNet, run through a reproducible Python pipeline.**
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/<your-username>/SketchesToLife/blob/main/notebooks/sketch2image_colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Wajid011/SketchesToLife/blob/main/notebooks/sketch2image_colab.ipynb)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
