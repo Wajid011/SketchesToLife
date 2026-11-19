@@ -166,8 +166,10 @@ python app/app.py            # http://127.0.0.1:7860
 python app/app.py --share    # public gradio.live link (use this on Colab)
 ```
 
-Locally, the UI also needs `pip install gradio==4.31.5 huggingface-hub==0.23.0`
-(newer `huggingface-hub` releases removed `HfFolder`, which Gradio 4.31 imports).
+Both requirements files pin Gradio 4.31.5 together with the fastapi / starlette /
+pydantic / huggingface-hub versions it works with. Newer releases of those break it:
+the app then exits with *"When localhost is not accessible, a shareable link must be
+created"*. If you see that error, re-run `pip install -r requirements-dev.txt`.
 
 **Colab:** open the badge at the top, choose a T4 runtime, set `REPO_URL`, Run All.
 
