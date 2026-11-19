@@ -64,6 +64,19 @@ def _enable_vae_tiling(pipeline: Any) -> None:
         vae.enable_tiling()
 
 
+def _match_adapter_channels(pipeline: Any, image: Image.Image) -> Image.Image:
+    """Give a T2I-Adapter the number of image channels it was trained on.
+
+    The sketch adapter (``in_channels: 1``) expects a grayscale map; an RGB map
+    would reach its first convolution with 3x too many channels.
+    """
+    adapter = getattr(pipeline, "adapter", None)
+    in_channels = getattr(getattr(adapter, "config", None), "in_channels", None)
+    if in_channels == 1:
+        return image.convert("L")
+    return image
+
+
 def configure_scheduler(pipeline: Any, scheduler_name: str) -> None:
     """Configure or replace the pipeline's noise scheduler.
 
@@ -472,7 +485,7 @@ class SketchToImageGenerator:
 
         call_kwargs: dict[str, Any] = {
             "prompt": [prompt] * num_images_per_prompt,
-            "image": conditioning_map,
+            "image": _match_adapter_channels(self._pipe, conditioning_map),
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
             "height": resolution,

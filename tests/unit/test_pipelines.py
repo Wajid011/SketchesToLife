@@ -2,9 +2,32 @@
 
 from __future__ import annotations
 
+import types
 from unittest import mock
 
-from sketch2image.pipelines import _enable_vae_tiling
+from PIL import Image
+
+from sketch2image.pipelines import _enable_vae_tiling, _match_adapter_channels
+
+
+def _pipe_with_adapter(in_channels: int) -> types.SimpleNamespace:
+    config = types.SimpleNamespace(in_channels=in_channels)
+    return types.SimpleNamespace(adapter=types.SimpleNamespace(config=config))
+
+
+def test_sketch_adapter_gets_grayscale() -> None:
+    rgb = Image.new("RGB", (64, 64))
+    assert _match_adapter_channels(_pipe_with_adapter(1), rgb).mode == "L"
+
+
+def test_rgb_adapter_keeps_rgb() -> None:
+    rgb = Image.new("RGB", (64, 64))
+    assert _match_adapter_channels(_pipe_with_adapter(3), rgb).mode == "RGB"
+
+
+def test_controlnet_pipeline_image_unchanged() -> None:
+    rgb = Image.new("RGB", (64, 64))
+    assert _match_adapter_channels(types.SimpleNamespace(), rgb) is rgb
 
 
 class _NewDiffusersPipeline:
