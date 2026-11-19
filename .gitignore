@@ -90,3 +90,6 @@ desktop.ini
 *.bak
 wandb/
 runs/
+
+# Local AI-assistant notes
+CLAUDE.md
