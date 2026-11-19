@@ -110,7 +110,7 @@ pinned numpy 1.26 or torch 2.2.
 
 ```powershell
 py -3.12 -m venv .venv              # Windows (macOS/Linux: python3.12 -m venv .venv)
-.venv\Scriptsctivate              # macOS/Linux: source .venv/bin/activate
+.venv\Scripts\activate              # macOS/Linux: source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements-dev.txt
 pip install -e . --no-deps
