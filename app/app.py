@@ -74,23 +74,35 @@ NEURAL_MODES = {"hed", "pidinet", "lineart"}
 PRESET_CHOICES = ["none"] + list(STYLE_PRESETS)
 MAX_SEED = 2**31 - 1
 
+# (file stem in sketches/, prompt, preset). Matched by stem, so .png/.jpg both work.
 EXAMPLES = [
-    [
-        "sketch_01.png",
-        "cozy wooden cabin in the rocky mountains, warm glowing windows, pine forest",
+    (
+        "sketch_01",
+        "fluffy tabby kitten sitting, big curious eyes, soft fur",
         "photorealistic",
-    ],
-    [
-        "sketch_02.png",
+    ),
+    (
+        "sketch_02",
         "futuristic sleek electric sports car, reflections on glossy metallic red paint",
         "concept_art",
-    ],
-    [
-        "sketch_03.png",
-        "cute distinguished gentleman cat wearing retro glasses and bowtie",
+    ),
+    (
+        "sketch_03",
+        "rustic log cabin with a metal roof and chimney, bushes, quiet countryside",
         "watercolor",
-    ],
+    ),
 ]
+IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+
+
+def find_sketch(stem: str) -> Path | None:
+    """Return ``sketches/<stem>.<any image extension>``, or None if absent."""
+    for suffix in IMAGE_SUFFIXES:
+        path = SKETCH_DIR / f"{stem}{suffix}"
+        if path.exists():
+            return path
+    return None
+
 
 HOW_IT_WORKS = """
 **1 · Preprocessing.** Your sketch is cleaned (illumination normalised, thresholded,
@@ -575,9 +587,9 @@ def build_ui() -> gr.Blocks:
 
         gr.Examples(
             examples=[
-                [str(SKETCH_DIR / f), p, s]
-                for f, p, s in EXAMPLES
-                if (SKETCH_DIR / f).exists()
+                [str(path), p, s]
+                for stem, p, s in EXAMPLES
+                if (path := find_sketch(stem)) is not None
             ],
             inputs=[upload, prompt, preset],
             label="Example sketches (click to load)",

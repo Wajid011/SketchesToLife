@@ -51,9 +51,9 @@ logger = logging.getLogger(__name__)
 
 # Standard academic prompts tailored to each sample sketch
 SKETCH_PROMPTS: dict[str, str] = {
-    "sketch_01": "cozy wooden cabin in the rocky mountains, warm glowing windows, pine forest",
+    "sketch_01": "fluffy tabby kitten sitting, big curious eyes, soft fur",
     "sketch_02": "futuristic sleek electric sports car, reflections on glossy metallic red paint",
-    "sketch_03": "cute distinguished gentleman cat",
+    "sketch_03": "rustic log cabin with a metal roof and chimney, bushes, quiet countryside",
 }
 
 
@@ -240,7 +240,7 @@ def run_single_experiment(
 HERO_CONFIGS = [
     {
         "stem": "sketch_01",
-        "caption": "Cabin — Photorealistic SD1.5",
+        "caption": "Kitten — Photorealistic SD1.5",
         "preset": "photorealistic",
     },
     {
@@ -248,7 +248,11 @@ HERO_CONFIGS = [
         "caption": "Sports Car — Concept Art SD1.5",
         "preset": "concept_art",
     },
-    {"stem": "sketch_03", "caption": "Cat — Watercolor SD1.5", "preset": "watercolor"},
+    {
+        "stem": "sketch_03",
+        "caption": "Log Cabin — Watercolor SD1.5",
+        "preset": "watercolor",
+    },
 ]
 
 

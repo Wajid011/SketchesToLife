@@ -133,8 +133,8 @@ The JSON sidecar of every generated image records the measured runtime and peak 
 **Single image (CLI):**
 
 ```bash
-python -m sketch2image.generate --sketch sketches/sketch_01.png \
-  --prompt "cozy wooden cabin in the rocky mountains, warm glowing windows" \
+python -m sketch2image.generate --sketch sketches/sketch_01.jpg \
+  --prompt "fluffy tabby kitten sitting, big curious eyes, soft fur" \
   --preset photorealistic --scale 1.0 --seed 42
 ```
 
@@ -369,9 +369,8 @@ Upstream reference code: [ControlNet v1.1](https://github.com/lllyasviel/Control
 [Stability-AI/generative-models](https://github.com/Stability-AI/generative-models),
 [CompVis/latent-diffusion](https://github.com/CompVis/latent-diffusion).
 
-**Sketches.** The three sample sketches in `sketches/` are synthetic: they were generated
-by `scripts/create_sample_sketches.py`, which adds pencil texture, paper grain and uneven
-lighting to imitate photographed drawings.
+**Sketches.** `sketches/` holds the three input images used in every experiment
+(`sketch_01`: kitten, `sketch_02`: sports car, `sketch_03`: log cabin).
 
 **License.** Code: MIT (see [LICENSE](LICENSE)). Generated images are subject to the
 licenses of the models above (OpenRAIL family: use-based restrictions apply).

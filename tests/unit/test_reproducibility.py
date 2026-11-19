@@ -11,9 +11,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 _SNIPPET = """
 import hashlib, numpy as np
+from PIL import Image, ImageDraw
 from sketch2image.pipelines import SketchToImageGenerator
+sketch = Image.new("RGB", (256, 192), "white")
+ImageDraw.Draw(sketch).rectangle((40, 40, 200, 150), outline="black", width=5)
 g = SketchToImageGenerator(mock=True)
-imgs, _ = g.generate("sketches/sketch_01.png", "a cabin", seed=42, num_images_per_prompt=2)
+imgs, _ = g.generate(sketch, "a box", seed=42, num_images_per_prompt=2)
 print("|".join(hashlib.sha256(np.asarray(i).tobytes()).hexdigest() for i in imgs))
 """
 

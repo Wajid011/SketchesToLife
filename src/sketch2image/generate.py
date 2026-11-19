@@ -8,7 +8,7 @@ Features:
   file documenting all hyper-parameters, model IDs, seed, runtime, and VRAM peak.
 - Side-by-Side Visualisation: Generates comparison panels (Sketch | Condition | Output).
 - Resumable: Skips generation if image and metadata already exist.
-- CLI: ``python -m sketch2image.generate --sketch sketches/sketch_01.png --prompt "..."``
+- CLI: ``python -m sketch2image.generate --sketch sketches/sketch_01.jpg --prompt "..."``
 """
 
 from __future__ import annotations

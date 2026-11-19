@@ -18,9 +18,9 @@ backend: sd15_controlnet
 # Single path or list of paths (relative to repo root or absolute).
 # Supports glob patterns: sketches/*.png
 sketch_paths:
-  - sketches/sketch_01.png
-  - sketches/sketch_02.png
-  - sketches/sketch_03.png
+  - sketches/sketch_01.jpg
+  - sketches/sketch_02.jpg
+  - sketches/sketch_03.jpg
 
 # ── Output ────────────────────────────────────────────────
 # Overridden by OUTPUT_DIR environment variable when set.
