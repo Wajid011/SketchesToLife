@@ -16,10 +16,21 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from PIL import Image
 
 logger = logging.getLogger(__name__)
+
+
+def _subplots(nrows: int, ncols: int, **kwargs: Any) -> tuple[Figure, Any]:
+    """Create a figure + axes without pyplot.
+
+    These figures are only saved to disk, so they need no GUI backend. pyplot
+    would pick one (TkAgg on Windows), which fails on a broken Tcl/Tk install
+    and crashes when called from worker threads (e.g. the Gradio app).
+    """
+    fig = Figure(figsize=kwargs.pop("figsize", None))
+    return fig, fig.subplots(nrows, ncols, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +80,7 @@ def create_experiment_grid(
     fig_height = 4.4 if subtitle else 4.0
 
     # Clean academic styling
-    fig, axes = plt.subplots(1, n_cols, figsize=(fig_width, fig_height), squeeze=False)
+    fig, axes = _subplots(1, n_cols, figsize=(fig_width, fig_height), squeeze=False)
     ax_row = axes[0]
 
     # Panel 0: Input sketch with highlighted frame
@@ -111,7 +122,6 @@ def create_experiment_grid(
 
     fig.tight_layout(pad=0.6)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
 
     logger.info("Saved experiment grid: %s", output_path)
     return output_path.resolve()
@@ -164,7 +174,7 @@ def create_2d_matrix_grid(
     fig_w = 3.2 * (n_cols + 1)
     fig_h = 3.2 * n_rows + (0.8 if subtitle else 0.5)
 
-    fig, axes = plt.subplots(n_rows, n_cols + 1, figsize=(fig_w, fig_h), squeeze=False)
+    fig, axes = _subplots(n_rows, n_cols + 1, figsize=(fig_w, fig_h), squeeze=False)
 
     for r_idx in range(n_rows):
         # Column 0: Original sketch
@@ -199,7 +209,6 @@ def create_2d_matrix_grid(
 
     fig.tight_layout(pad=0.5)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
 
     logger.info("Saved 2D matrix grid: %s", output_path)
     return output_path.resolve()
@@ -234,7 +243,7 @@ def create_hero_figure(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     n_pairs = len(sketch_output_pairs)
-    fig, axes = plt.subplots(n_pairs, 2, figsize=(8, 3.8 * n_pairs), squeeze=False)
+    fig, axes = _subplots(n_pairs, 2, figsize=(8, 3.8 * n_pairs), squeeze=False)
 
     for i, pair in enumerate(sketch_output_pairs):
         sk_img = pair["sketch"]
@@ -263,7 +272,6 @@ def create_hero_figure(
     fig.suptitle(title, fontsize=14, fontweight="bold", y=1.01, color="#111111")
     fig.tight_layout(pad=0.8)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
 
     logger.info("Saved hero figure: %s", output_path)
     return output_path.resolve()
@@ -286,7 +294,7 @@ def save_side_by_side(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+    fig, axes = _subplots(1, 3, figsize=(12, 4))
     images = [sketch, conditioning_map, generated]
 
     for ax, img, title in zip(axes, images, titles, strict=False):
@@ -296,7 +304,6 @@ def save_side_by_side(
 
     fig.tight_layout(pad=0.5)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
-    plt.close(fig)
 
     logger.debug("Saved side-by-side grid: %s", output_path)
     return output_path.resolve()

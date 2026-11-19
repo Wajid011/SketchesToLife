@@ -25,8 +25,11 @@ click==8.1.7
 
 # ---- CPU-only torch (for import checks / mocking) -----------
 # Full CUDA torch is installed on Colab, NOT here.
-torch==2.1.2
-torchvision==0.16.2
+# 2.2.2 is the oldest torch with Python 3.12 wheels (2.1.x stops at 3.11) and it
+# still supports numpy 1.26. Use Python 3.10-3.12 for this file (numpy 1.26 has
+# no 3.13 wheels).
+torch==2.2.2
+torchvision==0.17.2
 
 # ---- Testing -----------------------------------------------
 pytest==8.2.0

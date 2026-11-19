@@ -89,7 +89,9 @@ SketchesToLife/
 
 ```bash
 git clone https://github.com/<your-username>/SketchesToLife.git && cd SketchesToLife
-pip install torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cu121
+# Colab/Kaggle: skip this line, PyTorch is preinstalled. Elsewhere, install a CUDA build
+# of PyTorch >= 2.2 matching your Python (2.1.x has no Python 3.12 wheels), e.g.:
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
 pip install -e . --no-deps
 python scripts/check_env.py
@@ -102,11 +104,17 @@ conda env create -f environment.yml
 conda activate sketch2image
 ```
 
-**Local CPU development** (tests, linting, UI work in mock mode; downloads no models):
+**Local CPU development** (tests, linting, UI work in mock mode; downloads no models).
+Use a virtual environment with **Python 3.10–3.12**. Python 3.13 cannot install the
+pinned numpy 1.26 or torch 2.2.
 
-```bash
-pip install -r requirements-dev.txt && pip install -e . --no-deps
-pytest
+```powershell
+py -3.12 -m venv .venv              # Windows (macOS/Linux: python3.12 -m venv .venv)
+.venv\Scriptsctivate              # macOS/Linux: source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements-dev.txt
+pip install -e . --no-deps
+pytest                              # 60 passed, 2 skipped (app + HED tests need GPU-env deps)
 ```
 
 ## Hardware requirements
@@ -290,7 +298,8 @@ deliberately not computed; `src/sketch2image/metrics.py` explains why.*
 | HED / PiDiNet / lineart annotators | [`lllyasviel/Annotators`](https://huggingface.co/lllyasviel/Annotators) | "other" (see model card) |
 | CLIP (CLIPScore metric) | [`openai/clip-vit-base-patch32`](https://huggingface.co/openai/clip-vit-base-patch32) | MIT ([openai/CLIP](https://github.com/openai/CLIP)) |
 
-**Versions** (`requirements.txt`): Python 3.10+, PyTorch 2.1.2 (cu121), diffusers 0.27.2,
+**Versions** (`requirements.txt`): Python 3.10+, PyTorch 2.1.2 (cu121) in `environment.yml`
+(Colab uses its preinstalled build; local CPU dev 2.2.2), diffusers 0.27.2,
 transformers 4.40.2, accelerate 0.30.1, huggingface-hub 0.23.0, controlnet-aux 0.0.7,
 gradio 4.31.5, numpy 1.26.4, opencv-python 4.9.0.80, scikit-image 0.23.2.
 `scripts/check_env.py` prints the versions actually installed.
