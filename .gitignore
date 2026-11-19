@@ -16,6 +16,7 @@ outputs/
 !sketches/**
 !assets/**
 !docs/**
+!report/**
 
 # ----- Model weights & HuggingFace cache --------------------
 *.bin

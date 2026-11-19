@@ -15,7 +15,7 @@ Exposes:
 - :func:`prepare_condition` : Unified function to process any sketch into a conditioning map.
 - :func:`clean_sketch`      : Step-by-step cleaning of raw noisy sketches.
 - :func:`resize_and_pad`    : Letterbox padding to target multiples of 8 / 64.
-- :class:`SketchPreprocessor`: Class interface for backward compatibility with diffusers.
+- :class:`SketchPreprocessor`: Callable wrapper around :func:`prepare_condition`.
 """
 
 from __future__ import annotations
@@ -514,12 +514,12 @@ def prepare_condition(
 
 
 # ---------------------------------------------------------------------------
-# 6. Backward Compatibility: SketchPreprocessor & load_sketch
+# 6. Convenience wrappers: SketchPreprocessor & load_sketch
 # ---------------------------------------------------------------------------
 
 
 class SketchPreprocessor:
-    """Wrapper class providing backward compatibility for diffusers pipelines.
+    """Callable that turns an image into a conditioning map with fixed settings.
 
     Args:
         preprocessor_type: Conditioning mode ('clean', 'hed', 'pidinet', 'lineart',

@@ -19,9 +19,8 @@ scipy==1.13.0
 scikit-image==0.23.2
 pandas==2.2.2
 
-# ---- Config & CLI ------------------------------------------
+# ---- Config ------------------------------------------------
 pyyaml==6.0.1
-click==8.1.7
 
 # ---- CPU-only torch (for import checks / mocking) -----------
 # Full CUDA torch is installed on Colab, NOT here.
@@ -34,16 +33,16 @@ torchvision==0.17.2
 # ---- Web app (Gradio) ---------------------------------------
 huggingface-hub==0.23.0   # gradio 4.31 imports HfFolder (removed in later hubs)
 gradio==4.31.5
-# Gradio 4.31 breaks with newer web-stack releases (starlette 1.x changed
-# TemplateResponse -> "unhashable type: 'dict'" and the app exits with
-# "When localhost is not accessible, a shareable link must be created").
-# These are the versions it was tested with:
+# Gradio 4.31 only starts with the web-stack versions it was released with:
 fastapi==0.111.0
 starlette==0.37.2
 pydantic==2.7.4
 uvicorn==0.24.0
 websockets==11.0.3
 httpx==0.27.2
+
+# ---- Report build (scripts/build_report.py) ---------------
+markdown==3.7
 
 # ---- Testing -----------------------------------------------
 pytest==8.2.0

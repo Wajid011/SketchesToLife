@@ -1,0 +1,36 @@
+{
+  "backend": "sd15_controlnet",
+  "controlnet_type": "scribble",
+  "condition_mode": "clean",
+  "model_ids": {
+    "sd15_base": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+    "controlnet_scribble": "lllyasviel/control_v11p_sd15_scribble",
+    "controlnet_lineart": "lllyasviel/control_v11p_sd15_lineart",
+    "controlnet_softedge": "lllyasviel/control_v11p_sd15_softedge",
+    "sdxl_base": "stabilityai/stable-diffusion-xl-base-1.0",
+    "controlnet_sdxl_scribble": "xinsir/controlnet-scribble-sdxl-1.0",
+    "sdxl_vae_fix": "madebyollin/sdxl-vae-fp16-fix",
+    "t2i_adapter_sketch": "TencentARC/t2iadapter_sketch_sd15v2"
+  },
+  "prompt": "A glass of water with a water bottle on a wooden table., 8k UHD, high resolution photograph, sharp focus, natural daylight, professional photography, realistic texture, 35mm lens, f/1.8",
+  "negative_prompt": "blurry, low quality, bad anatomy, worst quality, watermark, text, signature, deformed, ugly, cropped, jpeg artifacts, lowres, distorted features, poorly drawn, cartoon, illustration, drawing, painting, 3d render, artificial, blurry, plastic",
+  "num_inference_steps": 30,
+  "guidance_scale": 7.5,
+  "controlnet_conditioning_scale": 1.0,
+  "control_guidance_start": 0.0,
+  "control_guidance_end": 1.0,
+  "resolution": 512,
+  "seed": 42,
+  "scheduler": "DPM++ 2M Karras",
+  "num_images": 1,
+  "runtime_sec": 8.38,
+  "peak_vram_mb": 3412.0,
+  "mock": false,
+  "raw_prompt": "A glass of water with a water bottle on a wooden table.",
+  "style_preset": "photorealistic",
+  "line_thickness": 0,
+  "generated_files": [
+    "bottle_result.png"
+  ],
+  "created_at": "2026-11-19T18:23:09.999610+00:00"
+}

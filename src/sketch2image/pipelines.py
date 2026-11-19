@@ -526,8 +526,7 @@ class SketchToImageGenerator:
 
         for i in range(num_images):
             # Create a stylized mock image incorporating prompt colors and sketch edges
-            # zlib.crc32, not hash(): str hashes are salted per process
-            # (PYTHONHASHSEED), which made mock outputs differ between runs.
+            # crc32 rather than hash(): str hashes are salted per process.
             color_hue = zlib.crc32(f"{prompt}{seed}{i}".encode()) % 180
             base_hsv = np.zeros((resolution, resolution, 3), dtype=np.uint8)
             base_hsv[..., 0] = color_hue
@@ -594,19 +593,3 @@ class SketchToImageGenerator:
         except ImportError:
             pass
         return 0.0
-
-
-# Backward compatibility factory
-def build_pipeline(config: dict[str, Any]) -> Any:
-    """Create a SketchToImageGenerator from config dictionary."""
-    return SketchToImageGenerator(
-        backend=config.get("backend", "sd15_controlnet"),
-        controlnet_type=config.get("controlnet_type", "scribble"),
-        device=config.get("device", "cuda"),
-        dtype=config.get("dtype", "float16"),
-        model_ids=config.get("models"),
-        enable_attention_slicing=config.get("enable_attention_slicing", True),
-        enable_model_cpu_offload=config.get("enable_model_cpu_offload", False),
-        enable_vae_tiling=config.get("enable_vae_tiling", True),
-        scheduler_name=config.get("scheduler", "DPM++ 2M Karras"),
-    )

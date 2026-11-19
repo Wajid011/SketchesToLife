@@ -42,10 +42,7 @@ pyyaml==6.0.1; python_version < "3.13"
 
 # ---- Web UI (Gradio — supports --share for Colab tunnel) ---
 gradio==4.31.5; python_version < "3.13"
-# Gradio 4.31 breaks with newer web-stack releases (starlette 1.x changed
-# TemplateResponse -> "unhashable type: 'dict'" and the app exits with
-# "When localhost is not accessible, a shareable link must be created").
-# These are the versions it was tested with:
+# Gradio 4.31 only starts with the web-stack versions it was released with:
 fastapi==0.111.0; python_version < "3.13"
 starlette==0.37.2; python_version < "3.13"
 pydantic==2.7.4; python_version < "3.13"
