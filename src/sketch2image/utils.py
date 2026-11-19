@@ -50,7 +50,9 @@ def load_config(
             config = yaml.safe_load(f) or {}
         logger.debug("Loaded default config from %s.", _DEFAULT_CONFIG_PATH)
     else:
-        logger.warning("Default config not found at %s; starting from empty.", _DEFAULT_CONFIG_PATH)
+        logger.warning(
+            "Default config not found at %s; starting from empty.", _DEFAULT_CONFIG_PATH
+        )
 
     # 2. Merge experiment config
     if config_path is not None:
@@ -221,7 +223,9 @@ def get_env_info() -> dict[str, Any]:
     elif vram >= 10:
         info["recommended_backend"] = "sd15_controlnet (≥10 GB VRAM)"
     else:
-        info["recommended_backend"] = "sd15_controlnet with attention slicing (low VRAM)"
+        info["recommended_backend"] = (
+            "sd15_controlnet with attention slicing (low VRAM)"
+        )
 
     return info
 

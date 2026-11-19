@@ -20,20 +20,22 @@ from __future__ import annotations
 import gc
 import logging
 import time
+import zlib
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 from PIL import Image
 
 from sketch2image.preprocessing import prepare_condition
+from sketch2image.utils import set_seed
 
 logger = logging.getLogger(__name__)
 
 # Verified Hugging Face Model IDs
 DEFAULT_MODEL_IDS: dict[str, str] = {
     # SD 1.5
-    "sd15_base": "sd-legacy/stable-diffusion-v1-5",
+    "sd15_base": "stable-diffusion-v1-5/stable-diffusion-v1-5",
     "controlnet_scribble": "lllyasviel/control_v11p_sd15_scribble",
     "controlnet_lineart": "lllyasviel/control_v11p_sd15_lineart",
     "controlnet_softedge": "lllyasviel/control_v11p_sd15_softedge",
@@ -90,9 +92,13 @@ def configure_scheduler(pipeline: Any, scheduler_name: str) -> None:
             pipeline.scheduler.config
         )
     elif "euler" in name_lower:
-        pipeline.scheduler = EulerDiscreteScheduler.from_config(pipeline.scheduler.config)
+        pipeline.scheduler = EulerDiscreteScheduler.from_config(
+            pipeline.scheduler.config
+        )
     elif "unipc" in name_lower:
-        pipeline.scheduler = UniPCMultistepScheduler.from_config(pipeline.scheduler.config)
+        pipeline.scheduler = UniPCMultistepScheduler.from_config(
+            pipeline.scheduler.config
+        )
     elif "ddim" in name_lower:
         pipeline.scheduler = DDIMScheduler.from_config(pipeline.scheduler.config)
     elif "pndm" in name_lower:
@@ -170,7 +176,11 @@ class SketchToImageGenerator:
             self._loaded_cache_key = cache_key
             return
 
-        logger.info("Loading pipeline: backend='%s', controlnet='%s'...", self.backend, self.controlnet_type)
+        logger.info(
+            "Loading pipeline: backend='%s', controlnet='%s'...",
+            self.backend,
+            self.controlnet_type,
+        )
         import torch
 
         torch_dtype = torch.float16 if self.dtype_str == "float16" else torch.float32
@@ -219,7 +229,11 @@ class SketchToImageGenerator:
 
     def _load_sdxl_controlnet(self, torch_dtype: Any) -> None:
         """Load SDXL + ControlNet with CPU offload and fp16 VAE fix."""
-        from diffusers import AutoencoderKL, ControlNetModel, StableDiffusionXLControlNetPipeline
+        from diffusers import (
+            AutoencoderKL,
+            ControlNetModel,
+            StableDiffusionXLControlNetPipeline,
+        )
 
         cn_id = self.model_ids["controlnet_sdxl_scribble"]
         base_id = self.model_ids["sdxl_base"]
@@ -247,7 +261,9 @@ class SketchToImageGenerator:
             pipe_kwargs["vae"] = vae
 
         logger.info("Loading SDXL base: %s", base_id)
-        pipe = StableDiffusionXLControlNetPipeline.from_pretrained(base_id, **pipe_kwargs)
+        pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
+            base_id, **pipe_kwargs
+        )
 
         # Mandatory CPU offload for SDXL on 16GB T4
         pipe.enable_model_cpu_offload()
@@ -319,6 +335,7 @@ class SketchToImageGenerator:
         seed: int = 42,
         num_images_per_prompt: int = 1,
         condition_mode: str = "clean",
+        condition_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> tuple[list[Image.Image], dict[str, Any]]:
         """Generate images conditioned on sketch.
@@ -336,6 +353,9 @@ class SketchToImageGenerator:
             seed: Integer random seed for reproducibility.
             num_images_per_prompt: Number of images to generate.
             condition_mode: Preprocessing mode ('clean', 'canny', 'none', etc.).
+            condition_kwargs: Extra options for
+                :func:`~sketch2image.preprocessing.prepare_condition`
+                (e.g. ``{"line_thickness": 1}``).
             **kwargs: Extra arguments passed to the pipeline.
 
         Returns:
@@ -347,15 +367,19 @@ class SketchToImageGenerator:
 
         # 1. Preprocess the sketch into canonical conditioning map
         conditioning_map = prepare_condition(
-            sketch, mode=condition_mode, resolution=resolution, multiple=64
+            sketch,
+            mode=condition_mode,
+            resolution=resolution,
+            multiple=64,
+            **(condition_kwargs or {}),
         )
 
         # 2. Ensure pipeline is loaded
         self.load()
 
         # 3. Track execution time and peak VRAM
-        start_time = time.time()
-        vram_start_mb = self._get_vram_mb()
+        self._reset_peak_vram()
+        start_time = time.perf_counter()
 
         # 4. Run diffusion (or mock if no GPU/torch)
         if self._pipe == "mock_pipeline":
@@ -378,8 +402,12 @@ class SketchToImageGenerator:
                 **kwargs,
             )
 
-        runtime_sec = round(time.time() - start_time, 2)
-        vram_peak_mb = self._get_vram_mb() - vram_start_mb
+        self._cuda_synchronize()
+        runtime_sec = round(time.perf_counter() - start_time, 2)
+        # Absolute peak (weights + activations) for this call, not a delta:
+        # max_memory_allocated() is a process-wide high-water mark, so it is
+        # reset above and read here.
+        vram_peak_mb = self._get_vram_mb()
 
         # 5. Compile metadata sidecar
         metadata: dict[str, Any] = {
@@ -423,8 +451,12 @@ class SketchToImageGenerator:
         """Execute real diffusers pipeline on GPU."""
         import torch
 
-        # Generator per batch
-        generator = torch.Generator(device="cpu" if self.enable_model_cpu_offload else self.device)
+        # Seeds python/numpy/torch and enables cuDNN deterministic mode; the
+        # explicit torch.Generator below is what fixes the initial latent noise.
+        set_seed(seed)
+        generator = torch.Generator(
+            device="cpu" if self.enable_model_cpu_offload else self.device
+        )
         generator.manual_seed(seed)
 
         call_kwargs: dict[str, Any] = {
@@ -441,7 +473,9 @@ class SketchToImageGenerator:
             call_kwargs["negative_prompt"] = [negative_prompt] * num_images_per_prompt
 
         if self.backend in ("sd15_controlnet", "sdxl_controlnet"):
-            call_kwargs["controlnet_conditioning_scale"] = float(controlnet_conditioning_scale)
+            call_kwargs["controlnet_conditioning_scale"] = float(
+                controlnet_conditioning_scale
+            )
             call_kwargs["control_guidance_start"] = float(control_guidance_start)
             call_kwargs["control_guidance_end"] = float(control_guidance_end)
 
@@ -465,11 +499,12 @@ class SketchToImageGenerator:
 
         cond_arr = np.array(conditioning_map.resize((resolution, resolution)))
         images = []
-        rng = np.random.default_rng(seed)
 
         for i in range(num_images):
             # Create a stylized mock image incorporating prompt colors and sketch edges
-            color_hue = (hash(prompt + str(i)) % 180)
+            # zlib.crc32, not hash(): str hashes are salted per process
+            # (PYTHONHASHSEED), which made mock outputs differ between runs.
+            color_hue = zlib.crc32(f"{prompt}{seed}{i}".encode()) % 180
             base_hsv = np.zeros((resolution, resolution, 3), dtype=np.uint8)
             base_hsv[..., 0] = color_hue
             base_hsv[..., 1] = 120
@@ -485,7 +520,9 @@ class SketchToImageGenerator:
             # Composite the sketch lines as vivid foreground / lighting
             edge_mask = (cond_arr[..., 0] > 50).astype(np.float32)[..., None]
             line_color = np.array([255, 255, 255], dtype=np.float32)
-            composite = base_bgr * (1.0 - edge_mask * 0.7) + line_color * (edge_mask * 0.7)
+            composite = base_bgr * (1.0 - edge_mask * 0.7) + line_color * (
+                edge_mask * 0.7
+            )
             composite = np.clip(composite, 0, 255).astype(np.uint8)
 
             # Convert BGR to RGB
@@ -505,6 +542,24 @@ class SketchToImageGenerator:
             return torch.cuda.is_available()
         except ImportError:
             return False
+
+    def _reset_peak_vram(self) -> None:
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+        except ImportError:
+            pass
+
+    def _cuda_synchronize(self) -> None:
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+        except ImportError:
+            pass
 
     def _get_vram_mb(self) -> float:
         try:

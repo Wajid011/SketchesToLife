@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import yaml
 from PIL import Image
 
@@ -12,7 +11,6 @@ from sketch2image.visualize import (
     create_2d_matrix_grid,
     create_experiment_grid,
     create_hero_figure,
-    save_side_by_side,
 )
 
 

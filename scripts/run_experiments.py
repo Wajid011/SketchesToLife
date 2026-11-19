@@ -7,7 +7,8 @@ Runs sweeps defined in ``configs/experiments/*.yaml``:
 - E3: Guidance Scale (3.0 -> 13.0)
 - E4: Control Guidance Release in Late Steps (0.4 -> 1.0)
 - E5: Preprocessing Conditioning Map Comparison (Raw vs Clean vs Canny vs Lineart)
-- E6: Style Presets & Artistic Variation (Photorealistic, Arch Render, Concept Art, Watercolor, Cyberpunk)
+- E6: Style Presets & Artistic Variation
+  (Photorealistic, Arch Render, Concept Art, Watercolor, Cyberpunk)
 - E7: Schedulers & Steps Trade-off
 - E8: Random Seed Variability (Stochastic consistency)
 
@@ -28,7 +29,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from PIL import Image
 
 # Ensure src/ is on sys.path
 _repo_root = Path(__file__).resolve().parent.parent
@@ -36,11 +36,17 @@ _src = _repo_root / "src"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from sketch2image.generate import generate_for_sketch
-from sketch2image.pipelines import SketchToImageGenerator
-from sketch2image.visualize import create_2d_matrix_grid, create_experiment_grid, create_hero_figure
+from sketch2image.generate import generate_for_sketch  # noqa: E402
+from sketch2image.pipelines import SketchToImageGenerator  # noqa: E402
+from sketch2image.visualize import (  # noqa: E402
+    create_2d_matrix_grid,
+    create_experiment_grid,
+    create_hero_figure,
+)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Standard academic prompts tailored to each sample sketch
@@ -111,7 +117,9 @@ def run_single_experiment(
                 condition_mode=merged.get("condition_mode", "clean"),
                 num_inference_steps=merged.get("num_inference_steps", 30),
                 guidance_scale=merged.get("guidance_scale", 7.5),
-                controlnet_conditioning_scale=merged.get("controlnet_conditioning_scale", 1.0),
+                controlnet_conditioning_scale=merged.get(
+                    "controlnet_conditioning_scale", 1.0
+                ),
                 resolution=res,
                 seed=merged.get("seed", 42),
                 num_images_per_prompt=1,
@@ -129,9 +137,11 @@ def run_single_experiment(
 
         backend = fixed_params.get("backend", "sd15_controlnet")
         cn_type = fixed_params.get("controlnet_type", "scribble")
-        generator = SketchToImageGenerator(backend=backend, controlnet_type=cn_type, mock=mock)
+        generator = SketchToImageGenerator(
+            backend=backend, controlnet_type=cn_type, mock=mock
+        )
 
-        for val, label in zip(values, labels):
+        for val, label in zip(values, labels, strict=False):
             curr_params = {**fixed_params, param_name: val}
 
             # Handle preset override
@@ -146,7 +156,9 @@ def run_single_experiment(
                 condition_mode=curr_params.get("condition_mode", "clean"),
                 num_inference_steps=curr_params.get("num_inference_steps", 30),
                 guidance_scale=curr_params.get("guidance_scale", 7.5),
-                controlnet_conditioning_scale=curr_params.get("controlnet_conditioning_scale", 1.0),
+                controlnet_conditioning_scale=curr_params.get(
+                    "controlnet_conditioning_scale", 1.0
+                ),
                 control_guidance_start=curr_params.get("control_guidance_start", 0.0),
                 control_guidance_end=curr_params.get("control_guidance_end", 1.0),
                 resolution=curr_params.get("resolution", 512),
@@ -187,7 +199,9 @@ def run_single_experiment(
                     output_dir=exp_out_dir,
                     num_inference_steps=curr_params.get("num_inference_steps", 30),
                     guidance_scale=curr_params.get("guidance_scale", 7.5),
-                    controlnet_conditioning_scale=curr_params.get("controlnet_conditioning_scale", 1.0),
+                    controlnet_conditioning_scale=curr_params.get(
+                        "controlnet_conditioning_scale", 1.0
+                    ),
                     seed=curr_params.get("seed", 42),
                     num_images_per_prompt=1,
                 )
@@ -203,7 +217,7 @@ def run_single_experiment(
             col_labels=c_labels,
             output_path=grid_out,
             title=f"{exp_id}: {exp_title} — {stem.replace('_', ' ').title()}",
-            subtitle=f"Prompt: \"{prompt}\"",
+            subtitle=f'Prompt: "{prompt}"',
         )
         return [], [], grid_out
 
@@ -222,38 +236,49 @@ def run_single_experiment(
     return variant_images, variant_labels, grid_out
 
 
-def run_hero_figure(
-    sketches: list[Path],
-    results_dir: Path,
-) -> Path:
-    """Generate the flagship Hero Figure displaying each sketch alongside its premier output."""
+# Hero figure = one E6 (style preset) output per sketch, at E6's fixed seed.
+HERO_CONFIGS = [
+    {
+        "stem": "sketch_01",
+        "caption": "Cabin — Photorealistic SD1.5",
+        "preset": "photorealistic",
+    },
+    {
+        "stem": "sketch_02",
+        "caption": "Sports Car — Concept Art SD1.5",
+        "preset": "concept_art",
+    },
+    {"stem": "sketch_03", "caption": "Cat — Watercolor SD1.5", "preset": "watercolor"},
+]
+
+
+def run_hero_figure(sketches: list[Path], out_dir: Path, results_dir: Path) -> Path:
+    """Build the hero figure from the exact E6 outputs named in ``HERO_CONFIGS``.
+
+    Requires E6 to have been run into ``out_dir``. A missing image is an error:
+    silently substituting another output would make the figure irreproducible.
+    """
     hero_pairs = []
-
-    # Map each sketch to its best stylistic output
-    hero_configs = [
-        {"stem": "sketch_01", "caption": "Cabin — Photorealistic SD1.5", "preset": "photorealistic"},
-        {"stem": "sketch_02", "caption": "Sports Car — Concept Art SD1.5", "preset": "concept_art"},
-        {"stem": "sketch_03", "caption": "Cat — Watercolor SD1.5", "preset": "watercolor"},
-    ]
-
-    for cfg in hero_configs:
+    for cfg in HERO_CONFIGS:
         stem = cfg["stem"]
         sk_path = next((p for p in sketches if p.stem == stem), None)
-        if not sk_path:
+        if sk_path is None:
             continue
-
-        # Look in E6 (Styles) first, or fallback to any generation
-        candidate = results_dir.parent / "outputs" / "experiments" / "E6" / stem / f"{stem}_{cfg['preset']}_sd15_controlnet_seed42_0.png"
-        if not candidate.exists():
-            # Search anywhere in outputs
-            candidates = list((results_dir.parent / "outputs").glob(f"**/{stem}*_0.png"))
-            candidate = candidates[0] if candidates else sk_path
-
-        hero_pairs.append({
-            "sketch": sk_path,
-            "output": candidate,
-            "caption": cfg["caption"],
-        })
+        # Name produced by generate_for_sketch for E6's fixed params
+        # (sd15_controlnet + scribble, seed 42, all other settings at defaults).
+        output = (
+            out_dir
+            / "E6"
+            / stem
+            / f"{stem}_{cfg['preset']}_sd15_controlnet_scribble_seed42_0.png"
+        )
+        if not output.exists():
+            raise FileNotFoundError(
+                f"Hero image missing: {output}. Run experiment E6 first (-e E6)."
+            )
+        hero_pairs.append(
+            {"sketch": sk_path, "output": output, "caption": cfg["caption"]}
+        )
 
     hero_out = results_dir / "hero_comparison.png"
     create_hero_figure(hero_pairs, output_path=hero_out)
@@ -261,7 +286,10 @@ def run_hero_figure(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run systematic sketch-to-image experiment sweeps.")
+    """CLI entry point: run the selected sweeps, their grids and the hero figure."""
+    parser = argparse.ArgumentParser(
+        description="Run systematic sketch-to-image experiment sweeps."
+    )
     parser.add_argument(
         "--experiments",
         "-e",
@@ -323,11 +351,17 @@ def main() -> None:
             if key in exp_map:
                 selected_files.append(exp_map[key])
             else:
-                print(f"Warning: Unknown experiment ID '{x}'. Available: {list(exp_map.keys())}")
+                print(
+                    f"Warning: Unknown experiment ID '{x}'. Available: {list(exp_map.keys())}"
+                )
 
     # Collect sketches
     sketch_files = sorted(
-        [p for p in sketches_dir.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg")]
+        [
+            p
+            for p in sketches_dir.iterdir()
+            if p.suffix.lower() in (".png", ".jpg", ".jpeg")
+        ]
     )
     if not sketch_files:
         print(f"No sketches found in '{sketches_dir}'.")
@@ -336,7 +370,9 @@ def main() -> None:
     print("=================================================================")
     print("  SketchesToLife — Experimentation Framework")
     print("=================================================================")
-    print(f"  Target Experiments: {[f.stem.split('_')[0].upper() for f in selected_files]}")
+    print(
+        f"  Target Experiments: {[f.stem.split('_')[0].upper() for f in selected_files]}"
+    )
     print(f"  Sketches Found:     {[s.name for s in sketch_files]}")
     print(f"  Output Dir:         {out_dir}")
     print(f"  Results Dir:        {results_dir}")
@@ -365,8 +401,11 @@ def main() -> None:
 
     # Generate the Hero figure
     print("★ Generating Flagship Hero Figure (All Sketches -> Best Output)...")
-    hero_figure = run_hero_figure(sketch_files, results_dir)
-    print(f"   ✓ Saved hero figure: {hero_figure}\n")
+    if (out_dir / "E6").is_dir():
+        hero_figure = run_hero_figure(sketch_files, out_dir, results_dir)
+        print(f"   ✓ Saved hero figure: {hero_figure}\n")
+    else:
+        print("   – Skipped: the hero figure is built from E6 outputs (add -e E6).\n")
 
     print("=================================================================")
     print(f"  Experiment Sweep Complete! Generated {len(completed_grids)} grids.")

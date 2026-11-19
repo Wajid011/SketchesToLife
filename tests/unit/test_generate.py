@@ -4,23 +4,19 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
 
 from sketch2image.generate import (
     DEFAULT_NEGATIVE_PROMPT,
-    STYLE_PRESETS,
     apply_style_preset,
     generate_for_sketch,
 )
 from sketch2image.pipelines import (
-    DEFAULT_MODEL_IDS,
     SketchToImageGenerator,
-    configure_scheduler,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Style Presets
@@ -43,7 +39,9 @@ def test_apply_style_preset_photorealistic():
 
 def test_apply_style_preset_custom_negative():
     prompt = "a cat"
-    styled, negative = apply_style_preset(prompt, preset="cyberpunk", custom_negative="blur, dark")
+    styled, negative = apply_style_preset(
+        prompt, preset="cyberpunk", custom_negative="blur, dark"
+    )
     assert "neon" in styled
     assert "blur, dark" in negative
 
@@ -61,7 +59,9 @@ def test_generator_init_defaults():
 
 
 def test_generator_cache_key():
-    gen = SketchToImageGenerator(backend="sdxl_controlnet", controlnet_type="scribble", mock=True)
+    gen = SketchToImageGenerator(
+        backend="sdxl_controlnet", controlnet_type="scribble", mock=True
+    )
     key = gen._get_cache_key()
     assert "sdxl_controlnet" in key
 

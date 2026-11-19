@@ -43,7 +43,7 @@ T2I-Adapter comparison, Gradio UI, Colab notebook.
 Local tests MUST mock or `pytest.mark.skip` anything GPU-dependent.
 
 The main execution entry point for Colab is:
-`notebooks/colab_runner.ipynb` — it mounts Google Drive, does `git pull`,
+`notebooks/sketch2image_colab.ipynb` — it mounts Google Drive, does `git pull`,
 installs requirements, then calls any experiment script with a chosen config.
 Outputs land in `/content/drive/MyDrive/sketch2image/` (or `OUTPUT_DIR` env var).
 
@@ -71,14 +71,20 @@ pytest + ruff   (local dev only)
 
 | Role | Hugging Face ID | License |
 |---|---|---|
-| **Base SD 1.5** | `sd-legacy/stable-diffusion-v1-5` | CreativeML Open RAIL-M |
-| **ControlNet — Scribble (SD 1.5)** | `lllyasviel/control_v11p_sd15_scribble` | CreativeML Open RAIL-M |
-| **ControlNet — Lineart (SD 1.5)** | `lllyasviel/control_v11p_sd15_lineart` | CreativeML Open RAIL-M |
-| **ControlNet — Softedge (SD 1.5)** | `lllyasviel/control_v11p_sd15_softedge` | CreativeML Open RAIL-M |
+| **Base SD 1.5** | `stable-diffusion-v1-5/stable-diffusion-v1-5` | CreativeML Open RAIL-M |
+| **ControlNet — Scribble (SD 1.5)** | `lllyasviel/control_v11p_sd15_scribble` | OpenRAIL |
+| **ControlNet — Lineart (SD 1.5)** | `lllyasviel/control_v11p_sd15_lineart` | OpenRAIL |
+| **ControlNet — Softedge (SD 1.5)** | `lllyasviel/control_v11p_sd15_softedge` | OpenRAIL |
 | **Base SDXL** | `stabilityai/stable-diffusion-xl-base-1.0` | CreativeML Open RAIL++-M |
 | **ControlNet Scribble (SDXL)** | `xinsir/controlnet-scribble-sdxl-1.0` | Apache-2.0 |
 | **T2I-Adapter Sketch (SD 1.5)** | `TencentARC/t2iadapter_sketch_sd15v2` | Apache-2.0 |
+| **CLIP (metrics only — CLIPScore)** | `openai/clip-vit-base-patch32` | no HF license tag; MIT per github.com/openai/CLIP |
+| **HED / PiDiNet annotators (metrics + preprocessing)** | `lllyasviel/Annotators` | "other" (per HF card) |
+| **SDXL fp16 VAE fix** | `madebyollin/sdxl-vae-fp16-fix` | MIT |
 
+> Licenses verified against the Hugging Face API on 2026-11-19.
+> `sd-legacy/stable-diffusion-v1-5` redirects to the canonical ID above.
+>
 > **Policy:** Never invent a model ID. If a new model is needed, search
 > huggingface.co, confirm it exists, record its license here.
 
@@ -236,7 +242,7 @@ Example mandatory keys: `model_id`, `controlnet_id`, `conditioning_scale`,
 - [ ] Generated results (sketch ↔ output side-by-side, multiple prompts/settings)
 - [ ] Technical explanation (this CLAUDE.md + report + inline docstrings)
 - [ ] `README.md` with install, deps, model refs, settings
-- [ ] `notebooks/colab_runner.ipynb` (full reproducible run)
+- [ ] `notebooks/sketch2image_colab.ipynb` (full reproducible run)
 - [ ] Full references section in `report/`
 - [ ] 2–4 page technical report
 

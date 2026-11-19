@@ -10,29 +10,21 @@ Tests:
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import cv2
 import numpy as np
 import pytest
 from PIL import Image
 
 from sketch2image.preprocessing import (
     SketchPreprocessor,
-    _resize_keep_aspect,
     adjust_line_thickness,
     auto_invert_to_white_lines,
-    clean_sketch,
-    extract_canny,
-    load_and_orient_image,
     load_sketch,
-    normalize_illumination,
     prepare_condition,
     remove_small_blobs,
     resize_and_pad,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Automatic Inversion Detection
@@ -88,9 +80,9 @@ def test_resize_and_pad_aspect_ratio_landscape():
     assert padded.shape == (512, 512)
     # Scaled to 512 width, height should be 256
     # Padding top and bottom should be (512 - 256) // 2 = 128
-    assert padded[10, 256] == 0       # Top padding area
-    assert padded[500, 256] == 0      # Bottom padding area
-    assert padded[256, 256] == 255    # Center content area
+    assert padded[10, 256] == 0  # Top padding area
+    assert padded[500, 256] == 0  # Bottom padding area
+    assert padded[256, 256] == 255  # Center content area
 
 
 def test_resize_and_pad_aspect_ratio_portrait():
@@ -100,9 +92,9 @@ def test_resize_and_pad_aspect_ratio_portrait():
     padded = resize_and_pad(img, resolution=512, multiple=64)
 
     assert padded.shape == (512, 512)
-    assert padded[256, 10] == 0       # Left padding area
-    assert padded[256, 500] == 0      # Right padding area
-    assert padded[256, 256] == 255    # Center content area
+    assert padded[256, 10] == 0  # Left padding area
+    assert padded[256, 500] == 0  # Right padding area
+    assert padded[256, 256] == 255  # Center content area
 
 
 def test_resize_and_pad_rgb_3channel():
@@ -126,8 +118,8 @@ def test_remove_small_blobs():
     canvas[40:50, 40:50] = 255
 
     cleaned = remove_small_blobs(canvas, min_area=25)
-    assert np.all(cleaned[10:12, 10:12] == 0)   # Speckle removed
-    assert np.all(cleaned[40:50, 40:50] == 255) # Stroke preserved
+    assert np.all(cleaned[10:12, 10:12] == 0)  # Speckle removed
+    assert np.all(cleaned[40:50, 40:50] == 255)  # Stroke preserved
 
 
 def test_adjust_line_thickness():
@@ -227,6 +219,7 @@ def test_preprocessor_none_mode():
 def test_preprocessor_missing_controlnet_aux():
     """Ensure clear error when controlnet_aux is not installed."""
     import sys
+
     import sketch2image.preprocessing as prep_mod
 
     # Simulate controlnet_aux absent

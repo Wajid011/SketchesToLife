@@ -24,7 +24,7 @@ from PIL import Image
 
 from sketch2image.pipelines import SketchToImageGenerator
 from sketch2image.preprocessing import prepare_condition
-from sketch2image.utils import load_config, resolve_output_dir, set_seed
+from sketch2image.utils import load_config, resolve_output_dir
 from sketch2image.visualize import save_side_by_side
 
 logger = logging.getLogger(__name__)
@@ -41,35 +41,66 @@ DEFAULT_NEGATIVE_PROMPT: str = (
 
 STYLE_PRESETS: dict[str, dict[str, str]] = {
     "photorealistic": {
-        "suffix": ", 8k UHD, high resolution photograph, sharp focus, natural daylight, professional photography, realistic texture, 35mm lens, f/1.8",
+        "suffix": (
+            ", 8k UHD, high resolution photograph, sharp focus, natural daylight, "
+            "professional photography, realistic texture, 35mm lens, f/1.8"
+        ),
         "negative": ", cartoon, illustration, drawing, painting, 3d render, artificial",
     },
     "architectural_render": {
-        "suffix": ", modern architectural visualization, photorealistic architectural render, octane render, Unreal Engine 5, realistic materials, warm ambient evening lighting, ArchDaily award winner",
+        "suffix": (
+            ", modern architectural visualization, photorealistic architectural "
+            "render, octane render, Unreal Engine 5, realistic materials, warm "
+            "ambient evening lighting, ArchDaily award winner"
+        ),
         "negative": ", sketch, drawing, low resolution, miniature, deformed geometry",
     },
     "concept_art": {
-        "suffix": ", digital concept art, trending on ArtStation, dynamic cinematic lighting, intricate details, atmospheric perspective, highly detailed digital illustration",
+        "suffix": (
+            ", digital concept art, trending on ArtStation, dynamic cinematic "
+            "lighting, intricate details, atmospheric perspective, highly detailed "
+            "digital illustration"
+        ),
         "negative": ", photorealistic, photo, amateur, messy lines",
     },
     "product_studio": {
-        "suffix": ", clean commercial product studio photography, softbox studio lighting, soft neutral background, pristine reflections, 8k, sharp focus, commercial catalog shot",
+        "suffix": (
+            ", clean commercial product studio photography, softbox studio "
+            "lighting, soft neutral background, pristine reflections, 8k, sharp "
+            "focus, commercial catalog shot"
+        ),
         "negative": ", outdoor, busy background, harsh shadows, noisy, dirty",
     },
     "watercolor": {
-        "suffix": ", expressive watercolor painting, delicate brushstrokes, rough paper grain texture, soft color bleed, translucent washes, handcrafted artistic masterpiece",
+        "suffix": (
+            ", expressive watercolor painting, delicate brushstrokes, rough paper "
+            "grain texture, soft color bleed, translucent washes, handcrafted "
+            "artistic masterpiece"
+        ),
         "negative": ", photograph, 3d render, sharp digital edges, plastic",
     },
     "cyberpunk": {
-        "suffix": ", cyberpunk aesthetic, vivid glowing neon lights, rainy wet asphalt reflections, moody volumetric haze, dark futuristic city atmosphere, high contrast, cinematic",
+        "suffix": (
+            ", cyberpunk aesthetic, vivid glowing neon lights, rainy wet asphalt "
+            "reflections, moody volumetric haze, dark futuristic city atmosphere, "
+            "high contrast, cinematic"
+        ),
         "negative": ", sunny, daytime, pastoral, rustic, monochrome",
     },
     "anime": {
-        "suffix": ", modern Japanese anime style illustration, Makoto Shinkai aesthetic, clean crisp lines, vibrant sky with volumetric clouds, beautiful anime visual, masterpiece",
+        "suffix": (
+            ", modern Japanese anime style illustration, Makoto Shinkai aesthetic, "
+            "clean crisp lines, vibrant sky with volumetric clouds, beautiful anime"
+            " visual, masterpiece"
+        ),
         "negative": ", photorealistic, 3d render, dark, gritty, Western comic",
     },
     "oil_painting": {
-        "suffix": ", classical oil painting on canvas, heavy impasto brushwork, rich textural depth, dramatic chiaroscuro lighting, Rembrandt palette, museum masterpiece",
+        "suffix": (
+            ", classical oil painting on canvas, heavy impasto brushwork, rich "
+            "textural depth, dramatic chiaroscuro lighting, Rembrandt palette, "
+            "museum masterpiece"
+        ),
         "negative": ", digital art, smooth, plastic, photograph, vector",
     },
 }
@@ -158,18 +189,28 @@ def generate_for_sketch(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     stem = sketch_path.stem
-    styled_prompt, full_negative = apply_style_preset(prompt, preset=preset, custom_negative=negative_prompt)
+    styled_prompt, full_negative = apply_style_preset(
+        prompt, preset=preset, custom_negative=negative_prompt
+    )
 
     # File naming incorporating all key experiment parameters
     preset_tag = f"_{preset}" if preset else ""
     cn_tag = f"_{generator.controlnet_type}" if generator.controlnet_type else ""
     cond_tag = f"_{condition_mode}" if condition_mode != "clean" else ""
-    scale_tag = f"_scale{controlnet_conditioning_scale}" if controlnet_conditioning_scale != 1.0 else ""
+    scale_tag = (
+        f"_scale{controlnet_conditioning_scale}"
+        if controlnet_conditioning_scale != 1.0
+        else ""
+    )
     cfg_tag = f"_cfg{guidance_scale}" if guidance_scale != 7.5 else ""
     end_tag = f"_end{control_guidance_end}" if control_guidance_end != 1.0 else ""
     steps_tag = f"_steps{num_inference_steps}" if num_inference_steps != 30 else ""
     sched_clean = generator.scheduler_name.replace(" ", "").replace("+", "p")
-    sched_tag = f"_{sched_clean}" if sched_clean not in ("DPMpp2MKarras", "DPMSolverMultistep") else ""
+    sched_tag = (
+        f"_{sched_clean}"
+        if sched_clean not in ("DPMpp2MKarras", "DPMSolverMultistep")
+        else ""
+    )
 
     base_name = (
         f"{stem}{preset_tag}_{generator.backend}{cn_tag}{cond_tag}"
@@ -187,11 +228,15 @@ def generate_for_sketch(
             cached_meta = json.load(f)
         return [{"image_path": img_path, "metadata": cached_meta, "sidecar": meta_path}]
 
-    logger.info("Generating image for sketch '%s' with preset '%s'...", stem, preset or "none")
+    logger.info(
+        "Generating image for sketch '%s' with preset '%s'...", stem, preset or "none"
+    )
 
     # 1. Generate condition map for preview / side-by-side
     target_res = resolution or (1024 if generator.backend == "sdxl_controlnet" else 512)
-    cond_map = prepare_condition(sketch_path, mode=condition_mode, resolution=target_res)
+    cond_map = prepare_condition(
+        sketch_path, mode=condition_mode, resolution=target_res
+    )
     cond_file = out_dir / f"{base_name}_condition.png"
     cond_map.save(cond_file)
 
@@ -212,13 +257,15 @@ def generate_for_sketch(
     )
 
     # Add extra experiment metadata
-    metadata.update({
-        "sketch_file": str(sketch_path.resolve()),
-        "raw_prompt": prompt,
-        "style_preset": preset,
-        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "generated_files": [],
-    })
+    metadata.update(
+        {
+            "sketch_file": str(sketch_path.resolve()),
+            "raw_prompt": prompt,
+            "style_preset": preset,
+            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "generated_files": [],
+        }
+    )
 
     results = []
     original_sketch = Image.open(sketch_path).convert("RGB")
@@ -232,12 +279,14 @@ def generate_for_sketch(
         if idx == 0:
             save_side_by_side(original_sketch, cond_map, img, grid_path)
 
-        results.append({
-            "image_path": single_img_file,
-            "metadata": metadata,
-            "sidecar": meta_path,
-            "grid_path": grid_path,
-        })
+        results.append(
+            {
+                "image_path": single_img_file,
+                "metadata": metadata,
+                "sidecar": meta_path,
+                "grid_path": grid_path,
+            }
+        )
 
     # Save JSON sidecar
     with meta_path.open("w", encoding="utf-8") as f:
@@ -300,11 +349,19 @@ def main() -> None:
         default=None,
         help="Sketch preprocessing condition extractor mode.",
     )
-    parser.add_argument("--steps", type=int, default=None, help="Number of inference steps.")
-    parser.add_argument("--scale", type=float, default=None, help="ControlNet conditioning scale.")
-    parser.add_argument("--guidance", type=float, default=None, help="Classifier-free guidance scale.")
+    parser.add_argument(
+        "--steps", type=int, default=None, help="Number of inference steps."
+    )
+    parser.add_argument(
+        "--scale", type=float, default=None, help="ControlNet conditioning scale."
+    )
+    parser.add_argument(
+        "--guidance", type=float, default=None, help="Classifier-free guidance scale."
+    )
     parser.add_argument("--seed", type=int, default=None, help="Reproducibility seed.")
-    parser.add_argument("--num-images", type=int, default=1, help="Number of images to generate.")
+    parser.add_argument(
+        "--num-images", type=int, default=1, help="Number of images to generate."
+    )
     parser.add_argument("--out", "-o", default=None, help="Output directory.")
     parser.add_argument(
         "--mock",
@@ -320,7 +377,12 @@ def main() -> None:
     cn_type = args.controlnet_type or cfg.get("controlnet_type", "scribble")
     cond_mode = args.condition_mode or cfg.get("preprocessor", "clean")
     steps = args.steps or cfg.get("num_inference_steps", 30)
-    scale = args.scale or cfg.get("controlnet_conditioning_scale", 1.0)
+    # `is not None`, not `or`: --scale 0 (ignore the sketch) is a valid setting.
+    scale = (
+        args.scale
+        if args.scale is not None
+        else cfg.get("controlnet_conditioning_scale", 1.0)
+    )
     guidance = args.guidance or cfg.get("guidance_scale", 7.5)
     seed = args.seed if args.seed is not None else cfg.get("seed", 42)
     out_dir = Path(args.out) if args.out else resolve_output_dir(cfg)
@@ -344,15 +406,19 @@ def main() -> None:
         sketch_files = [sketch_target]
     elif sketch_target.is_dir():
         sketch_files = sorted(
-            [p for p in sketch_target.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg")]
+            [
+                p
+                for p in sketch_target.iterdir()
+                if p.suffix.lower() in (".png", ".jpg", ".jpeg")
+            ]
         )
     else:
         print(f"Error: Sketch path '{sketch_target}' not found.")
         return
 
-    print(f"\n========================================================")
-    print(f"  SketchesToLife — Generation")
-    print(f"========================================================")
+    print("\n========================================================")
+    print("  SketchesToLife — Generation")
+    print("========================================================")
     print(f"  Backend:         {backend}")
     print(f"  ControlNet:      {cn_type}")
     print(f"  Condition Mode:  {cond_mode}")
@@ -362,7 +428,7 @@ def main() -> None:
     print(f"  Seed:            {seed}")
     print(f"  Output Dir:      {out_dir}")
     print(f"  Mock:            {args.mock}")
-    print(f"========================================================\n")
+    print("========================================================\n")
 
     for sketch_file in sketch_files:
         print(f"Processing '{sketch_file.name}'...")

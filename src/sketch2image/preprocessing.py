@@ -23,7 +23,7 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import cv2
 import numpy as np
@@ -40,7 +40,9 @@ _AUX_DETECTOR_REGISTRY: dict[str, Any] = {}
 # ---------------------------------------------------------------------------
 
 
-def load_and_orient_image(image_input: str | Path | Image.Image | np.ndarray) -> np.ndarray:
+def load_and_orient_image(
+    image_input: str | Path | Image.Image | np.ndarray,
+) -> np.ndarray:
     """Load an image from path or object, fix EXIF orientation, and convert to grayscale.
 
     Args:
@@ -138,12 +140,14 @@ def auto_invert_to_white_lines(binary: np.ndarray) -> tuple[np.ndarray, bool]:
     """
     # Sample border pixels to detect dominant background color
     h, w = binary.shape[:2]
-    border_pixels = np.concatenate([
-        binary[0, :],         # top
-        binary[h - 1, :],     # bottom
-        binary[:, 0],         # left
-        binary[:, w - 1],     # right
-    ])
+    border_pixels = np.concatenate(
+        [
+            binary[0, :],  # top
+            binary[h - 1, :],  # bottom
+            binary[:, 0],  # left
+            binary[:, w - 1],  # right
+        ]
+    )
     border_mean = np.mean(border_pixels)
     overall_mean = np.mean(binary)
 
@@ -167,7 +171,9 @@ def remove_small_blobs(binary: np.ndarray, min_area: int = 25) -> np.ndarray:
     if min_area <= 0:
         return binary
 
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+        binary, connectivity=8
+    )
     cleaned = binary.copy()
 
     for i in range(1, num_labels):
@@ -425,7 +431,8 @@ def prepare_condition(
         resolution: Target size (int for square or (w, h)).
         multiple: Required dimension multiple (default 64).
         **kwargs: Mode-specific parameters:
-            - ``adaptive_block_size``, ``adaptive_c``, ``min_blob_area``, ``line_thickness`` (for 'clean')
+            - ``adaptive_block_size``, ``adaptive_c``, ``min_blob_area``,
+              ``line_thickness`` (for 'clean')
             - ``low_threshold``, ``high_threshold`` (for 'canny')
             - ``coarse`` (for 'lineart')
 
@@ -472,8 +479,14 @@ def prepare_condition(
         try:
             detector = _get_aux_detector(mode)
         except (ImportError, Exception) as exc:
-            logger.warning("Neural detector '%s' unavailable (%s); falling back to 'clean' mode.", mode, exc)
-            return prepare_condition(image, mode="clean", resolution=resolution, multiple=multiple, **kwargs)
+            logger.warning(
+                "Neural detector '%s' unavailable (%s); falling back to 'clean' mode.",
+                mode,
+                exc,
+            )
+            return prepare_condition(
+                image, mode="clean", resolution=resolution, multiple=multiple, **kwargs
+            )
 
         res_val = resolution if isinstance(resolution, int) else max(resolution)
         det_kwargs = {"detect_resolution": res_val, "image_resolution": res_val}
@@ -482,7 +495,9 @@ def prepare_condition(
 
         detected = detector(pil_input, **det_kwargs)
         # Pad to multiple of 64
-        padded = resize_and_pad(np.array(detected), resolution=resolution, multiple=multiple)
+        padded = resize_and_pad(
+            np.array(detected), resolution=resolution, multiple=multiple
+        )
         if padded.ndim == 2:
             padded = cv2.cvtColor(padded, cv2.COLOR_GRAY2RGB)
         return Image.fromarray(padded)
@@ -507,7 +522,8 @@ class SketchPreprocessor:
     """Wrapper class providing backward compatibility for diffusers pipelines.
 
     Args:
-        preprocessor_type: Conditioning mode ('clean', 'hed', 'pidinet', 'lineart', 'canny', 'none').
+        preprocessor_type: Conditioning mode ('clean', 'hed', 'pidinet', 'lineart',
+            'canny', 'none').
         resolution: Target image resolution.
     """
 
@@ -517,7 +533,9 @@ class SketchPreprocessor:
 
     def __call__(self, image: Image.Image) -> Image.Image:
         """Process image into conditioning map."""
-        return prepare_condition(image, mode=self.preprocessor_type, resolution=self.resolution)
+        return prepare_condition(
+            image, mode=self.preprocessor_type, resolution=self.resolution
+        )
 
 
 def load_sketch(path: str | Path, resolution: int | None = None) -> Image.Image:
@@ -571,7 +589,9 @@ def create_conditioning_grid(
     Returns:
         Combined PIL Image grid.
     """
-    panels: list[tuple[str, Image.Image]] = [("Original", original_sketch.convert("RGB"))]
+    panels: list[tuple[str, Image.Image]] = [
+        ("Original", original_sketch.convert("RGB"))
+    ]
     for name, img in conditions.items():
         panels.append((name.capitalize(), img.convert("RGB")))
 
@@ -651,7 +671,11 @@ def main() -> None:
         sketch_files = [input_path]
     elif input_path.is_dir():
         sketch_files = sorted(
-            [p for p in input_path.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp")]
+            [
+                p
+                for p in input_path.iterdir()
+                if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp")
+            ]
         )
     else:
         print(f"Error: Input path '{input_path}' not found.")
@@ -662,7 +686,9 @@ def main() -> None:
         return
 
     print(f"Found {len(sketch_files)} sketch(es) in '{input_path}'.")
-    print(f"Processing modes: {modes} at resolution {args.resolution}x{args.resolution}...\n")
+    print(
+        f"Processing modes: {modes} at resolution {args.resolution}x{args.resolution}...\n"
+    )
 
     for sketch_path in sketch_files:
         print(f"Processing: {sketch_path.name}")
@@ -671,7 +697,9 @@ def main() -> None:
 
         for mode in modes:
             try:
-                cond = prepare_condition(sketch_path, mode=mode, resolution=args.resolution)
+                cond = prepare_condition(
+                    sketch_path, mode=mode, resolution=args.resolution
+                )
                 out_file = output_dir / f"{sketch_path.stem}_{mode}.png"
                 cond.save(out_file)
                 processed_conditions[mode] = cond

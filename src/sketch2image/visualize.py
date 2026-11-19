@@ -12,12 +12,12 @@ Features:
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,9 @@ def create_experiment_grid(
 
     # Panel 0: Input sketch with highlighted frame
     ax_row[0].imshow(pil_sketch)
-    ax_row[0].set_title(sketch_label, fontsize=11, fontweight="bold", pad=8, color="#1a1a1a")
+    ax_row[0].set_title(
+        sketch_label, fontsize=11, fontweight="bold", pad=8, color="#1a1a1a"
+    )
     for spine in ax_row[0].spines.values():
         spine.set_edgecolor("#4a90e2")
         spine.set_linewidth(2.0)
@@ -82,7 +84,9 @@ def create_experiment_grid(
     ax_row[0].set_yticks([])
 
     # Panels 1..N: Generated variants
-    for idx, (img, label) in enumerate(zip(pil_variants, column_labels), start=1):
+    for idx, (img, label) in enumerate(
+        zip(pil_variants, column_labels, strict=False), start=1
+    ):
         ax = ax_row[idx]
         ax.imshow(img)
         ax.set_title(label, fontsize=10, pad=8, color="#222222")
@@ -183,7 +187,15 @@ def create_2d_matrix_grid(
     if title:
         fig.suptitle(title, fontsize=13, fontweight="bold", y=1.02, color="#111111")
     if subtitle:
-        fig.text(0.5, 0.98, subtitle, ha="center", fontsize=9, style="italic", color="#555555")
+        fig.text(
+            0.5,
+            0.98,
+            subtitle,
+            ha="center",
+            fontsize=9,
+            style="italic",
+            color="#555555",
+        )
 
     fig.tight_layout(pad=0.5)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight", facecolor="white")
@@ -236,12 +248,16 @@ def create_hero_figure(
 
         # Left: Sketch
         axes[i, 0].imshow(sk_img)
-        axes[i, 0].set_title(f"Original Sketch #{i+1}", fontsize=11, fontweight="bold", pad=6)
+        axes[i, 0].set_title(
+            f"Original Sketch #{i+1}", fontsize=11, fontweight="bold", pad=6
+        )
         axes[i, 0].axis("off")
 
         # Right: Output
         axes[i, 1].imshow(out_img)
-        axes[i, 1].set_title(f"Generated ({caption})", fontsize=11, fontweight="bold", pad=6)
+        axes[i, 1].set_title(
+            f"Generated ({caption})", fontsize=11, fontweight="bold", pad=6
+        )
         axes[i, 1].axis("off")
 
     fig.suptitle(title, fontsize=14, fontweight="bold", y=1.01, color="#111111")
@@ -273,7 +289,7 @@ def save_side_by_side(
     fig, axes = plt.subplots(1, 3, figsize=(12, 4))
     images = [sketch, conditioning_map, generated]
 
-    for ax, img, title in zip(axes, images, titles):
+    for ax, img, title in zip(axes, images, titles, strict=False):
         ax.imshow(img)
         ax.set_title(title, fontsize=11, pad=6)
         ax.axis("off")

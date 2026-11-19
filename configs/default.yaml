@@ -29,7 +29,7 @@ output_dir: outputs/
 # ── Model IDs (Hugging Face) ──────────────────────────────
 models:
   # SD 1.5 base
-  sd15_base: sd-legacy/stable-diffusion-v1-5
+  sd15_base: stable-diffusion-v1-5/stable-diffusion-v1-5
 
   # ControlNet variants for SD 1.5
   controlnet_scribble:  lllyasviel/control_v11p_sd15_scribble

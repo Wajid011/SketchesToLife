@@ -86,7 +86,22 @@ ignore = [
     "D104", # Missing docstring in public package
     "ANN101", # Missing type annotation for `self`
     "ANN102", # Missing type annotation for `cls`
+    "ANN401", # Any is used for lazily imported third-party objects (pipelines, detectors)
+    "D107",   # __init__ args are documented in the class docstring (Google style)
+    "UP038",  # isinstance(x, A | B) is slower than a tuple; rule deprecated upstream
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are not public API: no docstring / annotation requirements.
+"tests/**" = ["D", "ANN"]
+
+[tool.ruff.lint.flake8-annotations]
+# **kwargs are forwarded to diffusers / Gradio, where Any is the honest type.
+allow-star-arg-any = true
+
+[tool.ruff.lint.pycodestyle]
+# The formatter wraps code at 88; E501 only flags long strings/comments it can't wrap.
+max-line-length = 100
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

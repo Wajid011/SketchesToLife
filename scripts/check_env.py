@@ -50,6 +50,7 @@ def main(as_json: bool = False) -> None:
     # Import lazily so the script works even if sketch2image is not installed
     try:
         from sketch2image.utils import get_env_info
+
         info = get_env_info()
     except ImportError:
         # Fallback: gather info directly (useful before `pip install -e .`)
@@ -191,7 +192,10 @@ def _fallback_env_info() -> dict:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SketchesToLife environment checker.")
     parser.add_argument(
-        "--json", action="store_true", dest="as_json", help="Print machine-readable JSON."
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Print machine-readable JSON.",
     )
     args = parser.parse_args()
     main(as_json=args.as_json)
